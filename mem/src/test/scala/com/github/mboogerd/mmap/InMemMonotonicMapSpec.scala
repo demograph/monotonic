@@ -30,10 +30,10 @@ class InMemMonotonicMapSpec extends ActorTestBase {
 
   behavior of "InMemoryMonotonicMap"
 
-  case class Dummy(i: Int = 1)
+  case class Dummy(set: Set[String] = Set.empty)
   implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-    override def zero: Dummy = Dummy(0)
-    override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(math.max(lhs.i, rhs.i))
+    override def zero: Dummy = Dummy()
+    override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
   }
 
   it should "return an unproductive Producer if a key is queried without initial state or updates" in {
@@ -133,7 +133,6 @@ class InMemMonotonicMapSpec extends ActorTestBase {
   }
 
   it should "return a Writer that signals propagation for Readers initiated after the write occurred" in {
-
     val monotonicMap = InMemMonotonicMap[String]()
 
     // Read then write
@@ -152,6 +151,26 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     consumeAll(monotonicMap.read("key"))
 
     probe.expectNext(Propagated(2)) // 2 because the query being propagated to was the 2nd subscriber (the write preceded)
+    probe.expectNoMsg(100.milliseconds)
+  }
+
+  it should "join two consecutive unconsumed writes" in {
+    val monotonicMap = InMemMonotonicMap[String]()
+    val w1 = monotonicMap.write("key", Dummy(Set("a")))
+    val w2 = monotonicMap.write("key", Dummy(Set("b")))
+
+    consumeAll(w1)
+    consumeAll(w2)
+
+    val probe = TestSubscriber.probe[Dummy]()
+    val reader = monotonicMap.read[Dummy]("key")
+    reader.subscribe(probe)
+
+    probe.ensureSubscription()
+    probe.expectNoMsg(100.milliseconds)
+
+    probe.request(2)
+    probe.expectNext(Dummy(Set("a", "b")))
     probe.expectNoMsg(100.milliseconds)
   }
   
