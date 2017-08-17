@@ -18,14 +18,14 @@ package com.github.mboogerd.mmap
 
 import akka.stream.testkit.TestSubscriber
 import algebra.lattice.BoundedJoinSemilattice
-import com.github.mboogerd.mmap.InMemMonotonicMapActor.{Persisted, Propagated}
+import com.github.mboogerd.mmap.InMemMonotonicMapActor.{ Persisted, Propagated }
 
 import scala.concurrent.duration._
 import scala.util.Try
 
 /**
-  *
-  */
+ *
+ */
 class InMemMonotonicMapSpec extends ActorTestBase {
 
   behavior of "InMemoryMonotonicMap"
@@ -55,18 +55,18 @@ class InMemMonotonicMapSpec extends ActorTestBase {
 
   it should "return a Producer producing only the initial value if one is provided, it is queried for and no other updates follow" in
     withStringMap(Map("key" → Dummy())) { monotonicMap ⇒
-    val producer = monotonicMap.read[Dummy]("key")
+      val producer = monotonicMap.read[Dummy]("key")
 
-    val probe = TestSubscriber.probe[Dummy]()
-    producer.subscribe(probe)
+      val probe = TestSubscriber.probe[Dummy]()
+      producer.subscribe(probe)
 
-    probe.ensureSubscription()
-    probe.expectNoMsg(remainingOrDefault)
+      probe.ensureSubscription()
+      probe.expectNoMsg(remainingOrDefault)
 
-    probe.request(1)
-    probe.expectNext(Dummy())
-    probe.expectNoMsg(remainingOrDefault)
-  }
+      probe.request(1)
+      probe.expectNext(Dummy())
+      probe.expectNoMsg(remainingOrDefault)
+    }
 
   it should "return a Producer for writes signaling a successful write to memory" in withStringMap() { monotonicMap ⇒
     val writeTracker = monotonicMap.write("key", Dummy())
@@ -329,8 +329,7 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     readerProbe.expectNext(Dummy(Set("g", "h")))
   }
 
-  def withStringMap(initialState: Map[String, AnyRef] = Map.empty[String, AnyRef])
-                   (test: InMemMonotonicMap[String] ⇒ Any): Unit = {
+  def withStringMap(initialState: Map[String, AnyRef] = Map.empty[String, AnyRef])(test: InMemMonotonicMap[String] ⇒ Any): Unit = {
 
     // Instantiate the implementing actor, and wrap a map around it
     val actor = watch(system.actorOf(InMemMonotonicMapActor.props(initialState)))
@@ -339,7 +338,6 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     test(monotonicMap)
     // We don't expect any messages from the watch (it would be `Terminated`)
     Try(expectNoMsg(remainingOrDefault)).failed.foreach(
-      fail("Deathwatch of InMemMonotonicMapActor was triggered by message", _)
-    )
+      fail("Deathwatch of InMemMonotonicMapActor was triggered by message", _))
   }
 }

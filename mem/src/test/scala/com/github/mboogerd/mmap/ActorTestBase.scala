@@ -21,14 +21,14 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.TestSubscriber.Probe
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.{ ActorMaterializer, Materializer }
 import akka.testkit.TestKitBase
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.reactivestreams.Publisher
 
 /**
-  *
-  */
+ *
+ */
 trait ActorTestBase extends TestKitBase with TestBase {
 
   lazy val stoppingConfigStr = """ akka.actor.guardian-supervisor-strategy = "akka.actor.StoppingSupervisorStrategy" """
@@ -37,7 +37,6 @@ trait ActorTestBase extends TestKitBase with TestBase {
   override implicit lazy val system: ActorSystem =
     ActorSystem("test", stoppingConfig)
   implicit lazy val mat: Materializer = ActorMaterializer()
-
 
   override protected def afterAll(): Unit = {
     system.terminate()
