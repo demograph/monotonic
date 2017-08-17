@@ -16,17 +16,47 @@
 
 package com.github.mboogerd.mmap
 
+import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.Source
+import akka.stream.testkit.TestSubscriber
+import akka.stream.testkit.TestSubscriber.Probe
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKitBase
+import com.typesafe.config.{Config, ConfigFactory}
+import org.reactivestreams.Publisher
 
 /**
- *
- */
+  *
+  */
 trait ActorTestBase extends TestKitBase with TestBase {
-  override implicit lazy val system: ActorSystem = ActorSystem("test")
+
+  lazy val stoppingConfigStr = """ akka.actor.guardian-supervisor-strategy = "akka.actor.StoppingSupervisorStrategy" """
+  lazy val stoppingConfig: Config = ConfigFactory.parseString(stoppingConfigStr)
+
+  override implicit lazy val system: ActorSystem =
+    ActorSystem("test", stoppingConfig)
+  implicit lazy val mat: Materializer = ActorMaterializer()
+
 
   override protected def afterAll(): Unit = {
     system.terminate()
     super.afterAll()
   }
+
+  /* Helper methods */
+
+  def subscribed[T](publisher: Publisher[T]): Probe[T] = {
+    val probe = TestSubscriber.probe[T]()
+    publisher.subscribe(probe)
+    probe.ensureSubscription()
+    probe
+  }
+
+  def bufferAll[T](publisher: Publisher[T]): Probe[T] = {
+    val subscription = subscribed(publisher)
+    subscription.request(Int.MaxValue)
+  }
+
+  def source[T](publisher: Publisher[T]): Source[T, NotUsed] = Source.fromPublisher(publisher)
 }
