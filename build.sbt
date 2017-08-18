@@ -1,24 +1,30 @@
+organization := "com.github.mboogerd"
+
 lazy val api = project.in(file("api"))
-  .settings(
-    inThisBuild(List(
-      organization := "com.github.mboogerd",
-      version := "0.1.0-SNAPSHOT"
-    )),
-    name := "MonotonicMap")
+  .settings(name := "mmap-api")
   .settings(GenericConf.settings())
   .settings(DependenciesConf.common)
   .settings(LicenseConf.settings)
+  .settings(ReleaseConf.publishSettings)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(TutConf.settings)
   .enablePlugins(TutPlugin)
 
 lazy val mem = project.in(file("mem"))
+  .settings(name := "mmap-mem")
   .settings(GenericConf.settings())
   .settings(DependenciesConf.common)
   .settings(DependenciesConf.akka)
   .settings(LicenseConf.settings)
+  .settings(ReleaseConf.publishSettings)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(TutConf.settings)
   .enablePlugins(TutPlugin)
   .dependsOn(api)
-  .aggregate(api)
+
+lazy val all = project.in(file("."))
+  .settings(name := "mmap-all")
+  .settings(GenericConf.settings())
+  .settings(ReleaseConf.publishSettings)
+  .aggregate(api, mem)
+  .dependsOn(api, mem)
