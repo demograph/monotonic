@@ -71,3 +71,23 @@ collaborative applications. What is yours?
 # Mem - Implementation
 Nothing fancy, a straightforward implementation that works, to
 facilitate the test-driven developer.
+
+Notable details:
+
+- `write(key, element)` returns a Publisher that will produce a `Persisted` once the
+written element is stored in memory. It will also produce a `Propagated`
+for each Reader that consumes the element written. The stream never
+terminates (MonotonicMap is not aware of whether additional Readers will
+subscribe in the future). Cancelling the subscription leads to its
+proper cleanup.
+
+- `read(key)` returns a Publisher that produces deltas from an internal
+buffer, one dedicated for each Reader. The buffer will merge any write
+occurring while there is no demand, and propagate that element as soon
+as the Reader signals its demand. As long as there is demand, all writes
+(to the given key) are propagated opportunistically. The very first
+element produced will reflect the entire state up to the point that
+demand was first signaled; no optimization takes place in the form of
+splitting it up in bite-size chunks (if you are creating a `Set` that
+fills your entire memory, that `Set` will be passed to the Reader).
+
