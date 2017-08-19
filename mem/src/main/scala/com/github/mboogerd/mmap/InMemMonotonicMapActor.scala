@@ -195,25 +195,4 @@ class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends 
 
   implicit def trackedWriteSemigroup(implicit joinSemilattice: JoinSemilattice[AnyRef]): Semigroup[(Set[Long], AnyRef)] =
     (x: (Set[Long], AnyRef), y: (Set[Long], AnyRef)) => (x._1 ++ y._1, joinSemilattice.join(x._2, y._2))
-
-  /**
-   * @deprecated Temporary logging of total state
-   */
-  private def showState: String =
-    s"""
-        STATE =   $state
-        QUERIES = $queries
-        WRITES =  $writes
-     """.stripMargin
-
-  /**
-   * @deprecated Temporary logging of total state
-   */
-  private def logPrePostState[S, T]: PartialFunction[S, T] ⇒ PartialFunction[S, T] = pf ⇒ {
-    case s if pf.isDefinedAt(s) ⇒
-      log.info(s"[PRE $s] $showState")
-      val result = pf(s)
-      log.info(s"[POST $s] $showState")
-      result
-  }
 }

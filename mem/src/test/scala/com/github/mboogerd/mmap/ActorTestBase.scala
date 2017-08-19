@@ -23,6 +23,7 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.TestSubscriber.Probe
 import akka.stream.{ ActorMaterializer, Materializer }
 import akka.testkit.TestKitBase
+import algebra.lattice.JoinSemilattice
 import com.typesafe.config.{ Config, ConfigFactory }
 import org.reactivestreams.Publisher
 
@@ -32,10 +33,9 @@ import org.reactivestreams.Publisher
 trait ActorTestBase extends TestKitBase with TestBase {
 
   lazy val stoppingConfigStr = """ akka.actor.guardian-supervisor-strategy = "akka.actor.StoppingSupervisorStrategy" """
-  lazy val stoppingConfig: Config = ConfigFactory.parseString(stoppingConfigStr)
+  lazy val actorSystemConfig: Config = ConfigFactory.parseString(stoppingConfigStr)
 
-  override implicit lazy val system: ActorSystem =
-    ActorSystem("test", stoppingConfig)
+  override implicit lazy val system: ActorSystem = ActorSystem("test", actorSystemConfig)
   implicit lazy val mat: Materializer = ActorMaterializer()
 
   override protected def afterAll(): Unit = {
@@ -57,5 +57,12 @@ trait ActorTestBase extends TestKitBase with TestBase {
     subscription.request(Int.MaxValue)
   }
 
-  def source[T](publisher: Publisher[T]): Source[T, NotUsed] = Source.fromPublisher(publisher)
+  def source[T](publisher: Publisher[T]): Source[T, NotUsed] =
+    Source.fromPublisher(publisher)
+
+  def source[K, V <: AnyRef](map: MonotonicMap[K], key: K): Source[V, NotUsed] =
+    source(map.read[V](key))
+
+  def source[K, V <: AnyRef: JoinSemilattice](map: MonotonicMap[K], key: K, element: V): Source[WriteNotification, NotUsed] =
+    source(map.write(key, element))
 }

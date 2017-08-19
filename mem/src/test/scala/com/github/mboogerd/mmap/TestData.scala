@@ -16,10 +16,23 @@
 
 package com.github.mboogerd.mmap
 
-import org.scalatest.concurrent.{ Eventually, ScalaFutures }
-import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
+import algebra.BoundedSemilattice
+import algebra.lattice.BoundedJoinSemilattice
 
 /**
  *
  */
-trait TestBase extends FlatSpecLike with Matchers with ScalaFutures with BeforeAndAfterAll with Eventually with TestData
+trait TestData {
+  case class Dummy(set: Set[String] = Set.empty)
+
+  implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
+    override def zero: Dummy = Dummy()
+    override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
+  }
+
+  implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
+
+  final val dummy = Dummy()
+}
+
+object TestData extends TestData
