@@ -1,0 +1,5 @@
+languages:
+- scala
+
+exclude:
+- /project/.*
