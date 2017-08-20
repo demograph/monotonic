@@ -19,6 +19,7 @@ package com.github.mboogerd.mmap
 import akka.actor.{ ActorRef, ActorRefFactory }
 import algebra.lattice.JoinSemilattice
 import org.reactivestreams.{ Publisher, Subscriber }
+import InMemMonotonicMapMessages._
 
 /**
  * Constructs an in-memory mmap.
@@ -36,7 +37,7 @@ class InMemMonotonicMap[K <: AnyRef](storeActor: ActorRef) extends MonotonicMap[
    *         subscriber terminates, the Publisher is expected to clean up after itself.
    */
   override def read[V <: AnyRef](key: K): Publisher[V] =
-    (s: Subscriber[_ >: V]) => storeActor ! InMemMonotonicMapActor.Read(key, s.asInstanceOf[Subscriber[AnyRef]])
+    (s: Subscriber[_ >: V]) => storeActor ! Read(key, s.asInstanceOf[Subscriber[AnyRef]])
 
   /**
    * Attempts to write `value` to `key`. We expect a `JoinSemilattice` for `V` as we ought to be able to merge any
@@ -51,7 +52,7 @@ class InMemMonotonicMap[K <: AnyRef](storeActor: ActorRef) extends MonotonicMap[
    */
   override def write[V <: AnyRef: JoinSemilattice](key: K, value: V): Publisher[WriteNotification] =
     (s: Subscriber[_ >: WriteNotification]) =>
-      storeActor ! InMemMonotonicMapActor.Write(key, value, implicitly[JoinSemilattice[V]], s.asInstanceOf[Subscriber[WriteNotification]])
+      storeActor ! Write(key, value, implicitly[JoinSemilattice[V]], s.asInstanceOf[Subscriber[WriteNotification]])
 }
 
 object InMemMonotonicMap {

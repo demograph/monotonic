@@ -19,7 +19,7 @@ package com.github.mboogerd.mmap
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.TestSubscriber
 import cats.syntax.semigroup._
-import com.github.mboogerd.mmap.InMemMonotonicMapActor.{ Persisted, Propagated }
+import com.github.mboogerd.mmap.InMemMonotonicMapMessages.{ Persisted, Propagated }
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 
 import scala.concurrent.ExecutionContext.Implicits.global

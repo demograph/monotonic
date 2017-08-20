@@ -20,12 +20,11 @@ import akka.actor.{ Actor, ActorLogging, Props }
 import algebra.lattice.JoinSemilattice
 import cats.Semigroup
 import cats.instances.option._
+import cats.instances.vector._
 import cats.syntax.semigroup._
-import com.github.mboogerd.mmap.InMemMonotonicMapActor._
+import com.github.mboogerd.mmap.InMemMonotonicMapMessages._
 import org.log4s._
 import org.reactivestreams.{ Subscriber, Subscription }
-
-import scala.collection.immutable.Seq
 
 /**
  * InMemMonotonicMapActor allows reads and writes. Writes are propagated to active readers. For every
@@ -37,162 +36,106 @@ import scala.collection.immutable.Seq
  */
 object InMemMonotonicMapActor {
   def props[K <: AnyRef](initialState: Map[K, AnyRef]): Props = Props(new InMemMonotonicMapActor[K](initialState))
-
-  case class Read(key: AnyRef, subscriber: Subscriber[AnyRef])
-
-  case class Unsubscribe(key: AnyRef, index: Long, writer: Boolean)
-
-  case class UpdateDemand(key: AnyRef, index: Long, demand: Long, writer: Boolean)
-
-  case class Write[V <: AnyRef](key: AnyRef, value: V, joinSemilattice: JoinSemilattice[V], subscriber: Subscriber[WriteNotification])
-
-  private final val initialDemand: Long = 0L
-
-  /**
-   * Signals that the write was stored in the memory state. This happens max. 1 time and should be the first event
-   */
-  case class Persisted() extends WriteNotification
-
-  /**
-   * Signals that the write was propagated to a Subscriber.
-   *
-   * @param query The internal index of the query, only there to aid in identification (may be removed in the future)
-   */
-  case class Propagated(query: Long) extends WriteNotification
-
 }
 
 class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends Actor with ActorLogging {
 
   private[this] val log = getLogger
 
+  var readers: SubscribedReaders[K] = SubscribedReaders()
+  var writers: SubscribedWriters[K] = SubscribedWriters()
+
+  // The 'persistent' state for this map
   var state: Map[K, (Set[Long], AnyRef)] = initialState.mapValues(any ⇒ (Set.empty, any))
 
-  // logical timestamps for queries and writes
+  // logical timestamps for Reader/Writer subscribers
   var subscriberIndex: Long = 0
 
-  // Abstracts over the very similar types that we have for maintaining subscriber-state of writes and queries
-  private type SubscriberState[S, Q] = Map[K, Map[Long, (Subscriber[S], Long, Q)]]
-  var queries: SubscriberState[AnyRef, Option[(Set[Long], AnyRef)]] = Map.empty
-  var writes: SubscriberState[WriteNotification, Vector[WriteNotification]] = Map.empty
-
-  override def receive: Receive = {
+  /*
+    * Message handling logic
+    */
+  override val receive: Receive = {
+    case UpdateDemand(key: K @unchecked, index, demand, false) if readers.isDefined(key, index) ⇒
+      handleUpdateReader(key, index, readers.addDemand(demand))
+    case UpdateDemand(key: K @unchecked, index, demand, true) if writers.isDefined(key, index) ⇒
+      handleUpdateWriter(key, index, writers.addDemand(demand))
     case Read(key: K @unchecked, subscriber) ⇒
-      queries = subscribe(queries)(key, subscriber, writer = false, state.get(key))._2
-    case Unsubscribe(key: K @unchecked, index, false) if queriesContains(key, index) ⇒
-      queries = unsubscribe(key, index, queries)
-    case Unsubscribe(key: K @unchecked, index, true) if writesContains(key, index) ⇒
-      unsubscribeWriter(key, index)
-    case UpdateDemand(key: K @unchecked, index, demand, false) if queriesContains(key, index) ⇒
-      handleUpdateReader(key, index, demand)()
-    case UpdateDemand(key: K @unchecked, index, demand, true) if writesContains(key, index) ⇒
-      handleUpdateWriter(key, index, demand)
+      readers = subscribeReader(key, subscriber, state.get(key))._2
     case Write(key: K @unchecked, value, lat, sub) ⇒
       handleWrite(key, value, sub)(lat)
+    case Unsubscribe(key: K @unchecked, index, false) if readers.isDefined(key, index) ⇒
+      readers = readers.unsubscribe(key, index)
+    case Unsubscribe(key: K @unchecked, index, true) if writers.isDefined(key, index) ⇒
+      unsubscribeWriter(key, index)
   }
 
-  def queriesContains: (K, Long) ⇒ Boolean = subStateContains(queries)
-  def writesContains: (K, Long) ⇒ Boolean = subStateContains(writes)
-  def subStateContains[S, Q](subState: SubscriberState[S, Q])(key: K, index: Long): Boolean =
-    subState.contains(key) && subState(key).contains(index)
-
-  def subscribe[S, Q](from: SubscriberState[S, Q])(key: K, subscriber: Subscriber[S], writer: Boolean, queue: Q): (Long, SubscriberState[S, Q]) = {
-    subscriberIndex += 1
-
-    val subscription = new Subscription {
-      val subscriptionIndex: Long = subscriberIndex
-      override def cancel(): Unit = self ! Unsubscribe(key, subscriptionIndex, writer)
-      override def request(n: Long): Unit = self ! UpdateDemand(key, subscriptionIndex, n, writer)
-    }
-
-    subscriber.onSubscribe(subscription)
-
-    // add the subscription to active subscribers with demand set to 0
-    val subscriptionState = (subscriber, InMemMonotonicMapActor.initialDemand, queue)
-    val newSubscribersState = from.updated(key, from.getOrElse(key, Map.empty) + (subscriberIndex → subscriptionState))
-    (subscriberIndex, newSubscribersState)
-  }
-
-  /**
-   * Unsubscribes the given (key, index) pair from the SubscriberState `from`
-   * @return the SubscriberState without the subscriber
+  /*
+   * Implementation
    */
-  def unsubscribe[S, Q](key: K, index: Long, from: SubscriberState[S, Q]): SubscriberState[S, Q] = {
-    val subscribed = from(key) - index
-    if (subscribed.isEmpty) from - key
-    else from + (key → subscribed)
+  def nextSubscriberIndex[T](f: Long => T): (Long, T) = {
+    subscriberIndex += 1
+    val t = f(subscriberIndex)
+    (subscriberIndex, t)
+  }
+
+  def createSubscription(key: K, index: Long, writer: Boolean): Subscription = new Subscription {
+    override def cancel(): Unit = self ! Unsubscribe(key, index, writer)
+    override def request(n: Long): Unit = self ! UpdateDemand(key, index, n, writer)
+  }
+
+  def subscribeReader(key: K, subscriber: Subscriber[AnyRef], queue: Option[(Set[Long], AnyRef)]): (Long, SubscribedReaders[K]) = {
+    nextSubscriberIndex { index ⇒
+      val subscription = createSubscription(key, index, writer = false)
+      subscriber.onSubscribe(subscription)
+      readers.subscribe(key, subscriber, queue, index)
+    }
+  }
+
+  def subscribeWriter(key: K, subscriber: Subscriber[WriteNotification], queue: Vector[WriteNotification]): (Long, SubscribedWriters[K]) = {
+    nextSubscriberIndex { index ⇒
+      val subscription = createSubscription(key, index, writer = true)
+      subscriber.onSubscribe(subscription)
+      writers.subscribe(key, subscriber, queue, index)
+    }
   }
 
   /**
-   * Unsubscribes the writer and removes its index from all queries/state
+   * Unsubscribes the writer and removes its index from all readers/state
    */
   def unsubscribeWriter(key: K, index: Long): Unit = {
-
-    // remove any pending messages for the writer
-    writes = unsubscribe(key, index, writes)
-
-    // remove the writer from being
-    val (writers, keyState) = state(key)
-    state = state.updated(key, (writers - index, keyState))
-
-    // remove the writer-index from any running queries
-    val keyQueries = queries.get(key).map(_.mapValues {
-      case (sub, demand, subState) ⇒ (sub, demand, subState.map { case (set, value) ⇒ (set - index, value) })
-    })
-    keyQueries.foreach { map ⇒
-      queries = queries.updated(key, map)
-    }
+    writers = writers.unsubscribe(key, index)
+    val (indexes, keyState) = state(key)
+    state = state.updated(key, (indexes - index, keyState))
+    readers = readers.unsubscribeWriter(key, index)
   }
 
-  def handleUpdateReader(key: K, index: Long, newDemand: Long)(f: Option[(Set[Long], AnyRef)] ⇒ Option[(Set[Long], AnyRef)] = identity): Unit = {
-    val (subscriber, demand, queue) = queries(key)(index)
-    val totalDemand = demand + newDemand
-    val totalQueue = f(queue)
-    val shouldSend = totalDemand > 0
-
-    // Should send to the Reader
-    if (shouldSend) totalQueue.foreach(s ⇒ subscriber.onNext(s._2))
-    val netDemand = if (shouldSend) totalDemand - 1 else totalDemand
-    val netQueue = if (!shouldSend) totalQueue else Option.empty
-
-    // send write notifications for a dispatched read
-    val updates = if (shouldSend) totalQueue.toSeq.flatMap {
-      case (trackers, _) ⇒
-        trackers.map(_ → Propagated(index))
-    }
-    else Seq.empty
-
-    updates.foreach { case (writerIndex, msg) ⇒ handleUpdateWriter(key, writerIndex, 0, Vector(msg)) }
-
-    queries = queries.updated(key, queries(key) + (index → (subscriber, netDemand, netQueue)))
+  def handleUpdateReader(key: K, index: Long, mutate: SubscribedReaders[K]#SubscriberState ⇒ SubscribedReaders[K]#SubscriberState): Unit = {
+    val (sub, queue, newState) = readers.updateSubscriber(key, index, mutate)
+    queue.map(_._2).foreach(sub.onNext)
+    queue.toTraversable.flatMap(q ⇒ q._1).foreach(notifyPropagation(key, index)(_))
+    readers = newState
   }
 
-  def handleUpdateWriter(key: K, index: Long, newDemand: Long, enqueue: Vector[WriteNotification] = Vector.empty): Unit = {
-    val (subscriber, _, _) = writes(key)(index)
-    val (toSend, subState) = eventsToDispatch(writes)(key, index, newDemand, enqueue)
-    // send notifications to writer
-    toSend.foreach(subscriber.onNext)
-    writes = subState
-  }
+  private def notifyPropagation(key: K, readerIndex: Long)(writerIndex: Long): Unit =
+    handleUpdateWriter(key, writerIndex, writers.enqueue(Vector(Propagated(readerIndex))))
 
-  def eventsToDispatch[S, Q](from: SubscriberState[S, Vector[Q]])(key: K, index: Long, addDemand: Long = 0, enqueue: Vector[Q]): (Vector[Q], SubscriberState[S, Vector[Q]]) = {
-    val (subscriber, demand, queue) = from(key)(index)
-    val newDemand = demand + addDemand
-    val (toSend, toRetain) = (queue ++ enqueue).splitAt(math.min(Int.MaxValue, newDemand).toInt)
-    val newSubscriberState = (subscriber, newDemand - toSend.size + demand, toRetain)
-    (toSend, from.updated(key, from(key) + (index → newSubscriberState)))
+  def handleUpdateWriter(key: K, index: Long, update: SubscribedWriters[K]#SubscriberState ⇒ SubscribedWriters[K]#SubscriberState): Unit = {
+    val (sub, toSend, subscriberState) = writers.updateSubscriber(key, index, update)
+    toSend.foreach(sub.onNext)
+    writers = subscriberState
   }
 
   def handleWrite(key: K, value: AnyRef, tracker: Subscriber[WriteNotification])(implicit lattice: JoinSemilattice[AnyRef]): Unit = {
-    val (writerIndex, subState) = subscribe(writes)(key, tracker, writer = true, Vector(Persisted()))
+    val (writerIndex, subState) = subscribeWriter(key, tracker, Vector(Persisted()))
     val trackedWrite = (Set(writerIndex), value)
     // need to combine new value with possibly existing value (product lattice)
     state = state.updated(key, state.get(key).map(_ |+| trackedWrite).getOrElse(trackedWrite))
-    writes = subState
+    writers = subState
 
-    queries.getOrElse(key, Map.empty).keySet.foreach(index => handleUpdateReader(key, index, 0)(_ |+| Option(trackedWrite)))
+    val readerIndices = readers.state.getOrElse(key, Map.empty).keySet
+    readerIndices.foreach(index => handleUpdateReader(key, index, readers.enqueue(Option(trackedWrite))))
   }
 
-  implicit def trackedWriteSemigroup(implicit joinSemilattice: JoinSemilattice[AnyRef]): Semigroup[(Set[Long], AnyRef)] =
+  private implicit def trackedWriteSemigroup(implicit joinSemilattice: JoinSemilattice[AnyRef]): Semigroup[(Set[Long], AnyRef)] =
     (x: (Set[Long], AnyRef), y: (Set[Long], AnyRef)) => (x._1 ++ y._1, joinSemilattice.join(x._2, y._2))
 }
