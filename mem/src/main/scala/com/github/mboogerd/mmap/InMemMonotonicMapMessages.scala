@@ -27,19 +27,19 @@ object InMemMonotonicMapMessages {
   /**
    * Signals that the given subscriber desires read-subscription for the given key
    */
-  case class Read(key: AnyRef, subscriber: Subscriber[AnyRef])
+  case class Read(key: Any, subscriber: Subscriber[Any])
 
   /**
    * @param key The key to unsubscribe from
    * @param index The index of the subscription to cancel
    * @param writer True if the given index is a Writer, false if it is a Reader
    */
-  case class Unsubscribe(key: AnyRef, index: Long, writer: Boolean)
+  case class Unsubscribe(key: Any, index: Long, writer: Boolean)
 
   /**
    * Signals that the subscription with the given key and index has additional demand
    */
-  case class UpdateDemand(key: AnyRef, index: Long, demand: Long, writer: Boolean)
+  case class UpdateDemand(key: Any, index: Long, demand: Long, writer: Boolean)
 
   /**
    * Adds a value to the given key, with `subscriber` requiring feedback about its propagation
@@ -49,7 +49,7 @@ object InMemMonotonicMapMessages {
    * @param subscriber The subscriber for `WriteNotification`s
    * @tparam V The type of the value in `key`
    */
-  case class Write[V <: AnyRef](key: AnyRef, value: V, joinSemilattice: JoinSemilattice[V], subscriber: Subscriber[WriteNotification])
+  case class Write[V](key: Any, value: V, joinSemilattice: JoinSemilattice[V], subscriber: Subscriber[WriteNotification])
 
   /**
    * Signals that the write was stored in the memory state. This happens max. 1 time and should be the first event

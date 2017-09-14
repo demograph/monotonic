@@ -22,14 +22,14 @@ import org.reactivestreams.Subscriber
  *
  */
 object SubscribedReaders {
-  type Inner[K] = Map[K, Map[Long, (Subscriber[AnyRef], Long, Option[(Set[Long], AnyRef)])]]
+  type Inner[K] = Map[K, Map[Long, (Subscriber[Any], Long, Option[(Set[Long], Any)])]]
   def apply[K](): SubscribedReaders[K] = new SubscribedReaders(Map.empty)
 }
 
 case class SubscribedReaders[K] private[mmap] (state: SubscribedReaders.Inner[K]) extends Subscriptions[K] {
 
-  type Value = AnyRef
-  type Queue = Option[(Set[Long], AnyRef)]
+  type Value = Any
+  type Queue = Option[(Set[Long], Any)]
   type Outer = SubscribedReaders[K]
 
   override protected def instantiate(inner: Inner): SubscribedReaders[K] = SubscribedReaders(inner)

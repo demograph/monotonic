@@ -392,7 +392,7 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     all(writes) should have size (elementCount + 1)
   }
 
-  def withStringMap(initialState: Map[String, AnyRef] = Map.empty[String, AnyRef])(test: InMemMonotonicMap[String] ⇒ Any): Unit = {
+  def withStringMap(initialState: Map[String, Any] = Map.empty[String, Any])(test: InMemMonotonicMap[String] ⇒ Any): Unit = {
 
     // Instantiate the implementing actor, and wrap a map around it
     val actor = watch(system.actorOf(InMemMonotonicMapActor.props(initialState)))

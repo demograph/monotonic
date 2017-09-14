@@ -25,7 +25,7 @@ import InMemMonotonicMapMessages._
  * Constructs an in-memory mmap.
  * @tparam K The key type
  */
-class InMemMonotonicMap[K <: AnyRef](storeActor: ActorRef) extends MonotonicMap[K] {
+class InMemMonotonicMap[K](storeActor: ActorRef) extends MonotonicMap[K] {
 
   /**
    * Attempts to read a stream of updates for `key` as type `V`
@@ -36,8 +36,8 @@ class InMemMonotonicMap[K <: AnyRef](storeActor: ActorRef) extends MonotonicMap[
    *         cannot be handled as if being of type `V`. If no Subscriber is created for the Publisher, or the
    *         subscriber terminates, the Publisher is expected to clean up after itself.
    */
-  override def read[V <: AnyRef](key: K): Publisher[V] =
-    (s: Subscriber[_ >: V]) => storeActor ! Read(key, s.asInstanceOf[Subscriber[AnyRef]])
+  override def read[V](key: K): Publisher[V] =
+    (s: Subscriber[_ >: V]) => storeActor ! Read(key, s.asInstanceOf[Subscriber[Any]])
 
   /**
    * Attempts to write `value` to `key`. We expect a `JoinSemilattice` for `V` as we ought to be able to merge any
@@ -50,7 +50,7 @@ class InMemMonotonicMap[K <: AnyRef](storeActor: ActorRef) extends MonotonicMap[
    *         exceptions. All other errors should be transformed to instances of `WriteNotification`. Implementations
    *         are expected to clean up after themselves if subscribers terminate.
    */
-  override def write[V <: AnyRef: JoinSemilattice](key: K, value: V): Publisher[WriteNotification] =
+  override def write[V: JoinSemilattice](key: K, value: V): Publisher[WriteNotification] =
     (s: Subscriber[_ >: WriteNotification]) =>
       storeActor ! Write(key, value, implicitly[JoinSemilattice[V]], s.asInstanceOf[Subscriber[WriteNotification]])
 }
@@ -64,6 +64,6 @@ object InMemMonotonicMap {
    * @tparam K
    * @return
    */
-  def apply[K <: AnyRef](initialState: Map[K, AnyRef] = Map.empty[K, AnyRef])(implicit actorRefFactory: ActorRefFactory): InMemMonotonicMap[K] =
+  def apply[K](initialState: Map[K, Any] = Map.empty[K, Any])(implicit actorRefFactory: ActorRefFactory): InMemMonotonicMap[K] =
     new InMemMonotonicMap(actorRefFactory.actorOf(InMemMonotonicMapActor.props(initialState)))
 }

@@ -37,7 +37,7 @@ trait MonotonicMap[K] {
    *         element cannot be handled as if being of type `V`. If no Subscriber is created for the Publisher, or the
    *         subscriber terminates, the Publisher is expected to clean up after itself.
    */
-  def read[V <: AnyRef](key: K): Publisher[V]
+  def read[V](key: K): Publisher[V]
 
   /**
    * Attempts to write `value` to `key`. We expect a `JoinSemilattice` for `V` as we ought to be able to merge any
@@ -51,6 +51,6 @@ trait MonotonicMap[K] {
    *         are expected to clean up after themselves if subscribers terminate. Implementations are expected to
    *         close the stream cleanly if no further progress can be made and no FatalFailure occurred.
    */
-  def write[V <: AnyRef: JoinSemilattice](key: K, value: V): Publisher[WriteNotification]
+  def write[V: JoinSemilattice](key: K, value: V): Publisher[WriteNotification]
 
 }

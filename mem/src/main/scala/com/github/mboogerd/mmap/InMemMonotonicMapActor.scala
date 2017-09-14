@@ -35,10 +35,10 @@ import org.reactivestreams.{ Subscriber, Subscription }
  * element is likely to be the entire state for the key, no effort is made to cut it into bite-sized chunks.
  */
 object InMemMonotonicMapActor {
-  def props[K <: AnyRef](initialState: Map[K, AnyRef]): Props = Props(new InMemMonotonicMapActor[K](initialState))
+  def props[K](initialState: Map[K, Any]): Props = Props(new InMemMonotonicMapActor[K](initialState))
 }
 
-class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends Actor with ActorLogging {
+class InMemMonotonicMapActor[K](initialState: Map[K, Any]) extends Actor with ActorLogging {
 
   private[this] val log = getLogger
 
@@ -46,7 +46,7 @@ class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends 
   var writers: SubscribedWriters[K] = SubscribedWriters()
 
   // The 'persistent' state for this map
-  var state: Map[K, (Set[Long], AnyRef)] = initialState.mapValues(any ⇒ (Set.empty, any))
+  var state: Map[K, (Set[Long], Any)] = initialState.mapValues(any ⇒ (Set.empty, any))
 
   // logical timestamps for Reader/Writer subscribers
   var subscriberIndex: Long = 0
@@ -83,7 +83,7 @@ class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends 
     override def request(n: Long): Unit = self ! UpdateDemand(key, index, n, writer)
   }
 
-  def subscribeReader(key: K, subscriber: Subscriber[AnyRef], queue: Option[(Set[Long], AnyRef)]): (Long, SubscribedReaders[K]) = {
+  def subscribeReader(key: K, subscriber: Subscriber[Any], queue: Option[(Set[Long], Any)]): (Long, SubscribedReaders[K]) = {
     nextSubscriberIndex { index ⇒
       val subscription = createSubscription(key, index, writer = false)
       subscriber.onSubscribe(subscription)
@@ -125,7 +125,7 @@ class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends 
     writers = subscriberState
   }
 
-  def handleWrite(key: K, value: AnyRef, tracker: Subscriber[WriteNotification])(implicit lattice: JoinSemilattice[AnyRef]): Unit = {
+  def handleWrite(key: K, value: Any, tracker: Subscriber[WriteNotification])(implicit lattice: JoinSemilattice[Any]): Unit = {
     val (writerIndex, subState) = subscribeWriter(key, tracker, Vector(Persisted()))
     val trackedWrite = (Set(writerIndex), value)
     // need to combine new value with possibly existing value (product lattice)
@@ -136,6 +136,6 @@ class InMemMonotonicMapActor[K <: AnyRef](initialState: Map[K, AnyRef]) extends 
     readerIndices.foreach(index => handleUpdateReader(key, index, readers.enqueue(Option(trackedWrite))))
   }
 
-  private implicit def trackedWriteSemigroup(implicit joinSemilattice: JoinSemilattice[AnyRef]): Semigroup[(Set[Long], AnyRef)] =
-    (x: (Set[Long], AnyRef), y: (Set[Long], AnyRef)) => (x._1 ++ y._1, joinSemilattice.join(x._2, y._2))
+  private implicit def trackedWriteSemigroup(implicit joinSemilattice: JoinSemilattice[Any]): Semigroup[(Set[Long], Any)] =
+    (x: (Set[Long], Any), y: (Set[Long], Any)) => (x._1 ++ y._1, joinSemilattice.join(x._2, y._2))
 }
