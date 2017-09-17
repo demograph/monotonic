@@ -16,26 +16,23 @@
 
 package com.github.mboogerd.mmap
 
-import algebra.BoundedSemilattice
+import akka.actor.{ ActorRef, ActorSystem }
 import algebra.lattice.BoundedJoinSemilattice
+import com.github.mboogerd.mmap.InMemMVarActor.UpdateValue
+import com.github.mboogerd.mmap.mvar.{ AtomicMVar, MVar, Updatable }
 
 /**
  *
  */
-trait TestData {
+object InMemMVar {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+  //  class ObservableMVar[V: BoundedJoinSemilattice](observer: ActorRef)(implicit system: ActorSystem) extends AtomicMVar[V] {
+  //    override def update(v1: V): Unit = {
+  //      super.update(v1)
+  //      observer ! UpdateValue(v1) // fire and forget
+  //    }
+  //  }
+  //
+  //  def apply[V: BoundedJoinSemilattice](implicit system: ActorSystem): MVar[V] with Updatable[V] =
+  //    new ObservableMVar[V](system.actorOf(InMemMVarActor.props[V]))
 }
-
-object TestData extends TestData

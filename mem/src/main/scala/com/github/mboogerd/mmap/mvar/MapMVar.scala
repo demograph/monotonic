@@ -14,28 +14,18 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
+package com.github.mboogerd.mmap.mvar
 
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
+import algebra.lattice.JoinSemilattice
 
 /**
  *
  */
-trait TestData {
+case class MapMVar[S: JoinSemilattice, T: JoinSemilattice](source: MVar[S], f: S ⇒ T, initialValue: T)(implicit mat: Materializer) extends AtomicMVar[T](initialValue) {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+  val _ = Source.fromPublisher(source.publisher)
+    .map(f)
+    .runForeach(onUpdate)
 }
-
-object TestData extends TestData

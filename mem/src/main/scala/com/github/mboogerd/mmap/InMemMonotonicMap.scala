@@ -17,9 +17,10 @@
 package com.github.mboogerd.mmap
 
 import akka.actor.{ ActorRef, ActorRefFactory }
-import algebra.lattice.JoinSemilattice
+import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
 import org.reactivestreams.{ Publisher, Subscriber }
 import InMemMonotonicMapMessages._
+import com.github.mboogerd.mmap.mvar.MVar
 
 /**
  * Constructs an in-memory mmap.

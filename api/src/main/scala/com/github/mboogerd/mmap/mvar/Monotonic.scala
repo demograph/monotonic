@@ -14,28 +14,15 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
-
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+package com.github.mboogerd.mmap.mvar
 
 /**
  *
  */
-trait TestData {
+trait Monotonic[S, T] extends (S => T)
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
+object Monotonic {
+  def identity[S]: Monotonic[S, S] = new Monotonic[S, S] {
+    override def apply(v1: S): S = v1
   }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
 }
-
-object TestData extends TestData

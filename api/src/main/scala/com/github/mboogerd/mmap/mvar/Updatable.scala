@@ -14,28 +14,16 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
-
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+package com.github.mboogerd.mmap.mvar
 
 /**
  *
  */
-trait TestData {
+trait Updatable[T] {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+  /**
+   *
+   * @param t the value to be interpreted as an update
+   */
+  def update(t: T): Unit
 }
-
-object TestData extends TestData

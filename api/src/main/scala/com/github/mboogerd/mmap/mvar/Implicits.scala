@@ -14,28 +14,22 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
-
-import algebra.BoundedSemilattice
+package com.github.mboogerd.mmap.mvar
 import algebra.lattice.BoundedJoinSemilattice
 
 /**
  *
  */
-trait TestData {
+trait Implicits {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
+  /**
+   * An MVar, with an ExecutionContext in scope, permits the creation of graph stages (such as `map` and `product`)
+   */
+  implicit class MVarExecutionContext[A: BoundedJoinSemilattice](mvar: MVar[A])(implicit ec: ExecutionContext) extends MVarOps[A] {
 
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
+    override def map[T: BoundedJoinSemilattice](f: (A) ⇒ T): MVar[T] = ec.map(mvar)(f)
+
+    override def product[T: BoundedJoinSemilattice](mvarT: MVar[T]): MVar[(A, T)] = ec.product(mvar)(mvarT)
   }
 
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
 }
-
-object TestData extends TestData

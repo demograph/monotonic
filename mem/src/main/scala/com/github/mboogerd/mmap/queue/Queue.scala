@@ -14,28 +14,32 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
+package com.github.mboogerd.mmap.queue
 
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+import scala.collection.TraversableOnce
 
 /**
  *
  */
-trait TestData {
+trait Queue[V] {
+  type Repr <: Queue[V]
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
+  /**
+   * Enqueues the given element into this queue
+   * @param v
+   * @return
+   */
+  def enqueue(v: V): Repr
 
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
+  /**
+   * Dequeues the given number of elements from the queue, and returns that and the remaining queue.
+   * @param count
+   * @return
+   */
+  def dequeue(count: Int): (Int, TraversableOnce[V], Repr)
 
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+  /**
+   * @return true if this queue contains no elements, false otherwise
+   */
+  def isEmpty: Boolean
 }
-
-object TestData extends TestData

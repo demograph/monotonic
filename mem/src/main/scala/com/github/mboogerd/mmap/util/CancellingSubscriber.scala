@@ -14,28 +14,19 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
+package com.github.mboogerd.mmap.util
 
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+import org.reactivestreams.{ Subscriber, Subscription }
 
 /**
  *
  */
-trait TestData {
-
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+final class CancellingSubscriber[T] extends Subscriber[T] {
+  override def onError(t: Throwable): Unit = ()
+  override def onSubscribe(s: Subscription): Unit = s.cancel()
+  override def onComplete(): Unit = ()
+  override def onNext(t: T): Unit = ()
 }
-
-object TestData extends TestData
+object CancellingSubscriber {
+  def apply[T]: CancellingSubscriber[T] = new CancellingSubscriber[T]
+}

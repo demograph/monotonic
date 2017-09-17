@@ -14,28 +14,17 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
+package com.github.mboogerd.mmap.mvar
 
-import algebra.BoundedSemilattice
 import algebra.lattice.BoundedJoinSemilattice
 
 /**
  *
  */
-trait TestData {
+trait MVarOps[S] {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
+  def map[T: BoundedJoinSemilattice](f: S ⇒ T): MVar[T]
 
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
+  def product[T: BoundedJoinSemilattice](mvarT: MVar[T]): MVar[(S, T)]
 
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
 }
-
-object TestData extends TestData

@@ -14,28 +14,17 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
+package com.github.mboogerd.mmap.mvar
 
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+import algebra.lattice.JoinSemilattice
 
 /**
- *
+ * A Read-Write MVar. The Updatable interface is exposed to client code.
  */
-trait TestData {
-
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
-
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
+class WritableMVar[S: JoinSemilattice](initialValue: S) extends AtomicMVar[S](initialValue) with Updatable[S] {
+  /**
+   *
+   * @param s the value to be interpreted as an update
+   */
+  override def update(s: S): Unit = onUpdate(s)
 }
-
-object TestData extends TestData

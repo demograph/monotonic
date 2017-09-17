@@ -16,7 +16,8 @@
 
 package com.github.mboogerd.mmap
 
-import algebra.lattice.JoinSemilattice
+import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
+import com.github.mboogerd.mmap.mvar.MVar
 import org.reactivestreams.Publisher
 
 /**
@@ -52,5 +53,4 @@ trait MonotonicMap[K] {
    *         close the stream cleanly if no further progress can be made and no FatalFailure occurred.
    */
   def write[V: JoinSemilattice](key: K, value: V): Publisher[WriteNotification]
-
 }

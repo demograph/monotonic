@@ -14,28 +14,16 @@
  * limitations under the License.
  */
 
-package com.github.mboogerd.mmap
-
-import algebra.BoundedSemilattice
-import algebra.lattice.BoundedJoinSemilattice
+package com.github.mboogerd.mmap.mvar
 
 /**
- *
+ * An MVar can be digestable. That is, we can compute a bit of summary info from an instance using `digest` such that
+ * when we `diff` with that digest, we get the bottom value for the lattice, or a(nother) delta if the MVar was updated
+ * in the meantime
  */
-trait TestData {
+trait Digestable[F[_], D] {
 
-  object Dummy {
-    implicit object DummyLattice extends BoundedJoinSemilattice[Dummy] {
-      override def zero: Dummy = Dummy()
-      override def join(lhs: Dummy, rhs: Dummy): Dummy = Dummy(lhs.set ++ rhs.set)
-    }
+  def digest: D
+  def diff[T](digest: D): F[T]
 
-    implicit val DummySemigroup: BoundedSemilattice[Dummy] = DummyLattice.joinSemilattice
-  }
-
-  case class Dummy(set: Set[String] = Set.empty)
-
-  final val dummy = Dummy()
 }
-
-object TestData extends TestData
