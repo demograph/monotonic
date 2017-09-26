@@ -23,38 +23,6 @@ package object mvar extends Implicits {
 
   type UpdatableMVar[S] = MVar[S] with Updatable[S]
 
-  //
-  //  /**
-  //    * Explicit representation of the computational graph that maintains eventual consistency over MVar's
-  //    */
-  //  trait MVarModel[S] {
-  //    def key: String
-  //
-  //    def inspect(implicit ec: ExecutionContext): MVar[S] = ???
-  //  }
-  //
-  //  case class WritableMVarModel[S](key: String) extends MVarModel[S]
-  //
-  //  case class MapMVarModel[S, T](source: MVarModel[S], f: S ⇒ T) extends MVarModel[T] {
-  //    def key: String = this.hashCode().toString
-  //  }
-  //
-  //  case class ProductMVarModel[S, T](s1: MVarModel[S], s2: MVarModel[T]) extends MVarModel[(S, T)] {
-  //    def key: String = this.hashCode().toString
-  //  }
-  //
-  //  /**
-  //    * Alternative implementation that is more graph-oriented
-  //    */
-  //  trait MVarNode
-  //  case class MVarEdge(init: MVarNode, term: MVarNode)
-  //
-  //  case class WritableMVarNode() extends MVarNode
-  //  case class MapMVarNode[S, T](f: S ⇒ T) extends MVarNode
-  //  case class ProductMVarNode[S, T]()
-  //  // The trouble here is that case class identity is established through its parameters, and we may have arity 0.
-  //  // i.e. it may be better to have the MVarNode/Model parameters be interpreted as edges.
-
   /* Explicit representation of the computational graph */
   trait MVarNode {
     def sources: List[MVarNode]

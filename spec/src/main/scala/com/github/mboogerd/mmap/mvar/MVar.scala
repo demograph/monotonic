@@ -16,53 +16,22 @@
 
 package com.github.mboogerd.mmap.mvar
 
-import algebra.lattice.BoundedJoinSemilattice
 import org.reactivestreams.Publisher
 
 /**
- * This represents a monotonic variable with a single causal context, possibly shared with many peers.
- *
- * TODO:
- * - Rewrite MVar to expose a Publisher interface (needs multi-subscribe + single-element merging queue)
- * - Allow for MVar/Publisher to write back to MonotonicMap
- * - Allow writing derived MVars, say `map`
- *   - Observer interface
- *   - Broadcasting Publisher with `queueSize` for all subscribers
- *   - Later? We want to have an explicit representation of the logical/computational pipeline for the MVar.
- *     - We can quite easily represent non-parameterized stages (such as product/intersect/union),
- *       but not functional/higher-order ones (map, filter, fold) because we lack a representation for the function
- *   - Decide where to store a representation of the logical pipeline... (it seems like it could be a graph CRDT?
- *     or each node can be a Top-most CRDT under its own key? i.e. no re-writes allowed?)
- *
- * MVar design
- * - MVar can be instantiated standalone: Updates are written synchronously
- * - MVar can be instantiated as a replica: Updates are exchanged asynchronously
- * - MVar can be instantiated as a derivative: Updates are received asynchronously
- *   - product / zip
- *   - lexicographic product
- *   - linear sum
- *   - mmap (with higher order inflations on the inner Set(Map)-like lattice)
- *     - map (can change signature, i.e. monotonic but no inflation)
- *     - filter
- *     - fold (can change signature i.e. monotonic but no inflation)
- *     - union
- *     - intersection
- *     - product (will change signature i.e. monotonic but no inflation)
- *     - diff
- *
  * MVar wraps a single monotonic value, typically a single causal context. When updated, it notifies a reactive-streams
  * observer, which publishes the delta to any (MVar) subscribers.
  *
  * Example:
- * x: UpdatableMVar[Byte]
- * y: UpdatableMVar[Int]
- * z = x.mmap(Char.fromAscii) Create new MappedMVar with backing subscriber and function
+ * x: UpdatableMVar[Byte] = ec.mvar
+ * y: UpdatableMVar[Int] = ec.mvar
+ * z = x.map(Char.fromAscii) Create new MappedMVar with backing subscriber and function
  * joined: MVar[(Int, Char)] = y.product(z)
  *
  * x.update(100) (updatable -> sync atomic update on MVar for sample -> async broadcast to subscribers)
  * y.update(50) (updatable -> sync atomic update on MVar for sample -> async broadcast to subscribers)
- * joined.sample() shouldBe (50, Char(100))
- * Neither `z` nor `joined` should be updatable
+ * eventually(joined.sample() shouldBe (50, Char(100)))
+ * Neither `z` nor `joined` are updatable
  */
 trait MVar[S] {
 
@@ -81,50 +50,9 @@ trait MVar[S] {
   protected[mvar] def onUpdate(s: S): Unit = ()
 
   /**
-   * Exposes the reactive-streams Publisher interface
+   * Exposes the reactive-streams Publisher interface so that derived MVars can subscribe. This Publisher will send
+   * the state of this MVar, and all future evolutions, to the Subscriber. Dependent on the type of `S`, this may be
+   * a stream of deltas or a stream of full states.
    */
   def publisher: Publisher[S]
-}
-
-object MVar {
-
-  //
-  //  class AtomicMVar[V: JoinSemilattice] private[this](value: AtomicReference[V]) extends MVar[V] {
-  //    override def sample: V = value.get()
-  //  }
-  //
-  //  def updatable[V: JoinSemilattice](initialValue: V): (Updatable[V], MVar[V]) = {
-  //    val ref = new AtomicReference[V](initialValue)
-  //    (new AtomicUpdatable[V](ref), new AtomicMVar[V](ref))
-  //  }
-  //
-  //  def updatable[V: BoundedJoinSemilattice]: (Updatable[V], MVar[V]) = updatable[V](BoundedJoinSemilattice.zero)
-  //
-  //  /**
-  //   * @return An MVar compatible with delta-updates (it will join each update into the existing state)
-  //   */
-  //  def apply[V: BoundedJoinSemilattice](): MVar[V] = new AtomicMVar[V](BoundedJoinSemilattice[V].zero)
-
-  /**
-   * @return An MVar that will merge in all elements produced by the given publisher
-   */
-  //  def apply[V: BoundedJoinSemilattice](publisher: Publisher[V]): MVar[V] = {
-  //    val (updatableMVar, mvar) = updatable[V]
-  //    var subscription: Subscription = null
-  //
-  //    publisher.subscribe(new Subscriber[V] {
-  //      override def onError(t: Throwable): Unit = () // log error?
-  //      override def onComplete(): Unit = () // doing nothing is fine
-  //      override def onNext(t: V): Unit = {
-  //        subscription.request(1)
-  //        updatableMVar.update(t)
-  //      }
-  //      override def onSubscribe(s: Subscription): Unit = {
-  //        subscription = s
-  //        subscription.request(1)
-  //      }
-  //    })
-  //
-  //    mvar
-  //  }
 }
