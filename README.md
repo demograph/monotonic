@@ -1,10 +1,10 @@
-MonotonicMap
+Monotonic
 ============
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.mboogerd/mmap-all_2.12.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.mboogerd/mmap-all_2.12)
-[![Build Status](https://api.travis-ci.org/demograph/monotonic-map.svg)](https://api.travis-ci.org/demograph/monotonic-map.svg)
-[![BCH compliance](https://bettercodehub.com/edge/badge/demograph/monotonic-map?branch=master)](https://bettercodehub.com/)
-[![codecov](https://codecov.io/gh/demograph/monotonic-map/branch/master/graph/badge.svg)](https://codecov.io/gh/demograph/monotonic-map)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.mboogerd/monotonic-all_2.12.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.mboogerd/monotonic-all_2.12)
+[![Build Status](https://api.travis-ci.org/demograph/monotonic.svg)](https://api.travis-ci.org/demograph/monotonic.svg)
+[![BCH compliance](https://bettercodehub.com/edge/badge/demograph/monotonic?branch=master)](https://bettercodehub.com/)
+[![codecov](https://codecov.io/gh/demograph/monotonic/branch/master/graph/badge.svg)](https://codecov.io/gh/demograph/monotonic)
 
 This project is comprised of the MonotonicMap interface and an
 in-memory implementation.

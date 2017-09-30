@@ -17,9 +17,9 @@ object ReleaseConf {
   )
 
   lazy val publishSettings = Seq(
-    homepage := Some(url("https://github.com/mboogerd/monotonic-map")),
+    homepage := Some(url("https://github.com/mboogerd/monotonic")),
     licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
-    scmInfo := Some(ScmInfo(url("https://github.com/mboogerd/monotonic-map"), "scm:git:git@github.com:mboogerd/monotonic-map.git")),
+    scmInfo := Some(ScmInfo(url("https://github.com/mboogerd/monotonic"), "scm:git:git@github.com:mboogerd/monotonic.git")),
     autoAPIMappings := true,
     pomExtra := (
       <developers>
