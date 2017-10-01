@@ -4,7 +4,7 @@ import sbt._
 object GenericConf {
 
   def commonSettings: Seq[_root_.sbt.Def.Setting[String]] = Seq(
-    organization := "com.github.mboogerd"
+    organization := "io.demograph"
   )
 
   def javaVersionSettings(version: String): Seq[Def.Setting[Task[Seq[String]]]] = Seq(

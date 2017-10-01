@@ -1,4 +1,4 @@
-organization := "com.github.mboogerd"
+organization := "io.demograph"
 
 lazy val spec = project.in(file("spec"))
   .settings(name := "monotonic-spec")

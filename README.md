@@ -1,7 +1,7 @@
 Monotonic
 ============
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.mboogerd/monotonic-all_2.12.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.mboogerd/monotonic-all_2.12)
+[![Maven Central](https://img.shields.io/maven-central/v/io.demograph/monotonic-all_2.12.svg)](https://maven-badges.herokuapp.com/maven-central/io.demograph/monotonic-all_2.12)
 [![Build Status](https://api.travis-ci.org/demograph/monotonic.svg)](https://api.travis-ci.org/demograph/monotonic.svg)
 [![BCH compliance](https://bettercodehub.com/edge/badge/demograph/monotonic?branch=master)](https://bettercodehub.com/)
 [![codecov](https://codecov.io/gh/demograph/monotonic/branch/master/graph/badge.svg)](https://codecov.io/gh/demograph/monotonic)
