@@ -14,16 +14,20 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.syntax
+package io.demograph.crdt.util
 
-import algebra.lattice.JoinSemilattice
+import cats.syntax.contravariant._
+import io.demograph.crdt.delta.dot.{ CompactDotSet, Dot }
+import org.scalatest.enablers.Aggregating
+import org.scalatest.enablers.Aggregating.aggregatingNatureOfGenTraversable
 
 /**
  *
  */
-trait JoinSyntax {
-  implicit def joinSyntax[A: JoinSemilattice](lhs: A): JoinOps[A] = new JoinOps[A](lhs)
+trait CompactDotSetImplicits {
+
+  implicit def aggrCDS[T]: Aggregating[CompactDotSet[T]] =
+    aggregatingNatureOfGenTraversable[Dot[T], Traversable].contramap[CompactDotSet[T]](_.toTraversable)
 }
-final class JoinOps[A: JoinSemilattice](lhs: A) {
-  def join(rhs: A) = JoinSemilattice[A].join(lhs, rhs)
-}
+
+object CompactDotSetImplicits extends CompactDotSetImplicits

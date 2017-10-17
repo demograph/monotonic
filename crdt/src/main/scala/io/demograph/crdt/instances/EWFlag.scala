@@ -14,22 +14,30 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.delta.map
+package io.demograph.crdt.instances
 
+import io.demograph.crdt.Session
 import io.demograph.crdt.delta.causal.{ CausalCRDT, CausalContext }
-import io.demograph.crdt.delta.dot.{ DotMap, DotStore }
+import io.demograph.crdt.delta.dot.{ Dot, DotSet }
+import io.demograph.crdt.implicits.DotImplicits.dottedDot
 
 /**
- *
+ * Enable-wins flag is a concurrently mutable boolean. Concurrent updates converge to an equivalent state on different
+ * replicas, where enable trumps any concurrent disable.
  */
-object ORMapInstances {
+object EWFlag {
+  type EWFlag[E] = CausalCRDT[E, DotSet[E]]
 
-  class CausalCRDTorMap[I, K, V, C](implicit ds: DotStore[V, I], causal: CausalCRDT[I, V, C]) extends CausalCRDT[I, DotMap[I, K, V], ORMap[I, K, V, C]] {
+  def empty[H: Session]: EWFlag[Dot[H]] = CausalCRDT(DotSet.empty, CausalContext.empty)
 
-    override def dotStore(t: ORMap[I, K, V, C]): DotMap[I, K, V] = t.dotStore
-
-    override def context(t: ORMap[I, K, V, C]): CausalContext[I] = t.causalContext
-
-    override def instance(dotStore: DotMap[I, K, V], context: CausalContext[I]): ORMap[I, K, V, C] = ORMap(dotStore, context)
+  trait Query[E] {
+    def read: Boolean
   }
+
+  trait Mutate[E] {
+    def enable: EWFlag[E]
+
+    def disable: EWFlag[E]
+  }
+
 }

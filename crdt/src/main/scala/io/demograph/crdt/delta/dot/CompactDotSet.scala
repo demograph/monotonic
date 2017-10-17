@@ -31,10 +31,10 @@ import scala.collection.{ GenSet, GenTraversableOnce, SetLike, immutable }
 /**
  * This is an implementation of a lax version vector. A normal version vector has the constraint that it can only
  * represent causally-consistent histories, by storing the maximum version observed per host, with the semantics that
- * all eventIDs up to this maximum version have been observed. `CompactDotSet` generalizes this by allowing gaps, while
+ * all dots up to this maximum version have been observed. `CompactDotSet` generalizes this by allowing gaps, while
  * retaining optimal efficiency for the causally consistent case, and good efficiency for near-causally-consistent
  * histories. Note that `CompactDotSet` is optimized for replicas performing _multiple_ updates. If only one update is
- * performed on each replica, performance will be close to that of a `Set` of `Dot`s (in fact, slightly worse because
+ * performed on each replica, performance will be close to that of a `SetCRDT` of `Dot`s (in fact, slightly worse because
  * of the overhead of Map and IntervalTrie, but this should be negligible)
  */
 object CompactDotSet {
@@ -44,6 +44,8 @@ object CompactDotSet {
   def empty[H]: CompactDotSet[H] = new CompactDotSet[H](Map.empty)
 
   def apply[H](host: H, version: Int): CompactDotSet[H] = new CompactDotSet(Map(host → (above(MIN_VERSION) & below(version))))
+
+  def apply[H](dots: TraversableOnce[Dot[H]]): CompactDotSet[H] = apply(dots.toSeq: _*)
 
   def apply[H](dots: Dot[H]*): CompactDotSet[H] = {
     val replicaDots = dots.groupBy(_.replica)

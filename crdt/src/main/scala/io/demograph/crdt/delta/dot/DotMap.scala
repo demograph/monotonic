@@ -22,13 +22,13 @@ import scala.collection.immutable.Map
  * the generic DotMap[K,V] is a map from some set K into some dot store V
  *
  * @param dotMap
- * @tparam I
+ * @tparam E
  * @tparam K
  * @tparam V
  */
-case class DotMap[I, K, V](dotMap: Map[K, V])(implicit ds: DotStore[V, I]) {
-  val dots: Dots[I] = dotMap.values.flatMap(ds.dots).toSet
-  def dots(key: K): Dots[I] = dotMap.get(key).map(ds.dots).getOrElse(Dots.empty)
+case class DotMap[E, K, V <: DotStore[E]](dotMap: Map[K, V]) extends DotStore[E] {
+  val dots: Set[E] = dotMap.view.flatMap(_._2.dots).toSet
+  def eventIDsFor(key: K): Set[E] = dotMap.get(key).map(_.dots).getOrElse(Set.empty)
   def domain: Set[K] = dotMap.keySet
   def contains(key: K): Boolean = dotMap.contains(key)
   def size: Int = dotMap.size
@@ -39,12 +39,12 @@ object DotMap {
   /**
    * Produces an empty DotMap
    */
-  def empty[I, K, V](implicit ds: DotStore[V, I]): DotMap[I, K, V] = new DotMap[I, K, V](Map.empty)
+  def empty[E, K, V <: DotStore[E]]: DotMap[E, K, V] = new DotMap[E, K, V](Map.empty)
 
   /**
    * Produces a DotMap with the given pairs
    */
-  def apply[I, K, V](pairs: (K, V)*)(implicit ds: DotStore[V, I]): DotMap[I, K, V] = new DotMap(Map(pairs: _*))
+  def apply[E, K, V <: DotStore[E]](pairs: (K, V)*): DotMap[E, K, V] = new DotMap(Map(pairs: _*))
 
 }
 

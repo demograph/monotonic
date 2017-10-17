@@ -16,41 +16,38 @@
 
 package io.demograph.crdt.delta
 
-import algebra.lattice.BoundedJoinSemilattice
 import cats.instances.list._
 import cats.syntax.foldable._
-import io.demograph.crdt.TestSpec
-import io.demograph.crdt.delta.causal.{ Causal, CausalCRDT }
-import io.demograph.crdt.delta.dot.DotStore
-import io.demograph.crdt.delta.map.ORMap
-import io.demograph.crdt.delta.set.AWSet
-import io.demograph.crdt.delta.set.AWSet.DS
+import cats.syntax.semigroup._
+import io.demograph.crdt.delta.dot.Dot
 import io.demograph.crdt.implicits.all._
-import io.demograph.crdt.syntax.joinSyntax._
+import io.demograph.crdt.instances.{ AWSet, ORMap }
+import io.demograph.crdt.util.{ CRDTTestImplicits, EventStoreImplicits }
+import io.demograph.crdt.{ Session, TestSpec }
+
 /**
  *
  */
-class ORMapTest extends TestSpec {
+class ORMapTest extends TestSpec with CRDTTestImplicits with EventStoreImplicits {
 
   behavior of "ORMap"
 
-  it should "add bottom elements by default" in {
-    val map = ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]]
-    map should have size 0
+  final val initial = withSession(0)(implicit s ⇒ ORMap.empty[Dot[Int], String, AWSet.DS[Dot[Int], String]])
 
-    val addKeyToMap = map.apply(identity, "testkey")
+  it should "add bottom elements by default" in {
+    initial should have size 0
+
+    val addKeyToMap = withSession(0)(implicit s ⇒ initial.mutateValue(identity, "testkey"))
     addKeyToMap should have size 1
 
     val empty = addKeyToMap.get("testkey")
-    empty shouldBe 'defined
 
-    empty.value shouldBe 'empty
+    empty shouldBe 'defined
+    empty.value should have size 0
   }
 
   it should "allow modification of a value for a given key" in {
-    val map = ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]]
-
-    val addKeyToMap = map.apply(_.add(1)("testvalue"), "testkey")
+    val addKeyToMap = withSession(0)(implicit s ⇒ initial.mutateValue(_.add("testvalue"), "testkey"))
     addKeyToMap should have size 1
 
     val testKeyWithValue = addKeyToMap.get("testkey")
@@ -59,65 +56,59 @@ class ORMapTest extends TestSpec {
   }
 
   it should "join sequential updates" in {
-    val map = ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]]
-    val modified = updateSequentially(map)(
-      ("key1", _.add(0)("value1")),
-      ("key2", _.add(1)("value2")),
-      ("key3", _.add(0)("value3")),
-      ("key4", _.add(1)("value4")))
+    val update1 = withSession(0)(implicit s ⇒ initial.mutateValue(_.add("value1"), "key1"))
+    val update2 = withSession(1)(implicit s ⇒ update1.mutateValue(_.add("value2"), "key2"))
+    val update3 = withSession(2)(implicit s ⇒ update2.mutateValue(_.add("value3"), "key1"))
 
-    modified should have size 4
+    val aggregateDelta = update1 |+| update2 |+| update3
+
+    aggregateDelta should have size 2
+    aggregateDelta.get("key1").value should have size 2
+    aggregateDelta.get("key2").value should have size 1
   }
 
   it should "join concurrent updates" in {
-    val map = ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]]
-    val modified = updateConcurrently(map)(
-      ("key1", _.add(0)("value1")),
-      ("key2", _.add(1)("value2")),
-      ("key1", _.add(2)("value3")),
-      ("key2", _.add(3)("value4")))
+    val map = List(
+      withSession(0)(implicit s ⇒ initial.mutateValue(_.add("value1"), "key1")),
+      withSession(1)(implicit s ⇒ initial.mutateValue(_.add("value2"), "key2")),
+      withSession(2)(implicit s ⇒ initial.mutateValue(_.add("value3"), "key1")),
+      withSession(3)(implicit s ⇒ initial.mutateValue(_.add("value4"), "key2"))).combineAll
 
-    modified should have size 2
-    modified.get("key1").value should have size 2
-    modified.get("key2").value should have size 2
+    map should have size 2
+    map.get("key1").value should have size 2
+    map.get("key2").value should have size 2
   }
 
   it should "represent deletions within nested datastructures as deltas" in {
-    val map = updateConcurrently(ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]])(
-      ("key1", _.add(0)("value1")),
-      ("key2", _.add(1)("value2")),
-      ("key1", _.add(2)("value3")),
-      ("key2", _.add(3)("value4")))
+    val map = List(
+      withSession(0)(implicit s ⇒ initial.mutateValue(_.add("value1"), "key1")),
+      withSession(1)(implicit s ⇒ initial.mutateValue(_.add("value2"), "key2")),
+      withSession(2)(implicit s ⇒ initial.mutateValue(_.add("value1"), "key1"))).combineAll
 
-    val deletion = map.apply(_.remove(0)("value1"), "key1")
+    val deletion = withSession(0)(implicit session ⇒ map.mutateValue(_.remove("value1"), "key1"))
+
     deletion should have size 1
+    deletion.context should contain only (Dot(0, 0), Dot(2, 0))
     deletion.get("key1").value should have size 0
-    deletion.get("key1").value.context.dots should have size 1
+    deletion.get("key1").value.dots should have size 0
   }
 
   it should "represent updates within nested datastructures as deltas" in {
-    val map = updateConcurrently(ORMap.empty[Int, String, DS[Int, String], AWSet[Int, String]])(
-      ("key1", _.add(0)("value1")),
-      ("key2", _.add(1)("value2")),
-      ("key1", _.add(2)("value3")),
-      ("key2", _.add(3)("value4")))
+    val map = List(
+      withSession(0)(implicit session ⇒ initial.mutateValue(_.add("value1"), "key1")),
+      withSession(1)(implicit session ⇒ initial.mutateValue(_.add("value2"), "key2")),
+      withSession(2)(implicit session ⇒ initial.mutateValue(_.add("value3"), "key1"))).combineAll
 
-    val addition = map.apply(_.add(0)("value5"), "key1")
+    val addition = withSession(0)(implicit session ⇒ map.mutateValue(_.add("value5"), "key1"))
     addition should have size 1
     addition.get("key1").value should have size 1
-    addition.get("key1").value.context.dots should have size 1
+    addition.get("key1").value.dots should have size 1
   }
 
-  def updateSequentially[I, K, V, C](map: ORMap[I, K, V, C])(kvs: (K, C ⇒ C)*)(implicit ds: DotStore[V, I], crdt: CausalCRDT[I, V, C], causal: Causal[I, V]): ORMap[I, K, V, C] = {
-    kvs.foldLeft(map) {
-      case (m, (key, mutate)) ⇒
-        val delta: ORMap[I, K, V, C] = m.apply(mutate, key)
-        m.join(delta)
+  def withSession[H, T](sessionId: H)(f: Session[H] ⇒ T): T = {
+    val session = new Session[H] {
+      override def localhost = sessionId
     }
-  }
-
-  def updateConcurrently[I, K, V, C](map: ORMap[I, K, V, C])(kvs: (K, C ⇒ C)*)(implicit ds: DotStore[V, I], crdt: CausalCRDT[I, V, C], causal: Causal[I, V]): ORMap[I, K, V, C] = {
-    val updates = kvs.map { case (key, update) ⇒ map.apply(update, key) }.toList
-    updates.foldMap(identity)(BoundedJoinSemilattice[ORMap[I, K, V, C]].joinSemilattice)
+    f(session)
   }
 }

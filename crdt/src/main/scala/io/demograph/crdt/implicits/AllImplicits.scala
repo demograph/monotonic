@@ -19,4 +19,12 @@ package io.demograph.crdt.implicits
 /**
  *
  */
-trait AllImplicits extends DotImplicits with CausalImplicits with CausalCRDTImplicits
+trait AllImplicits
+  extends ShimImplicits0
+  with DotImplicits
+  with CausalImplicits
+  with AWSetImplicits
+  with EWFlagImplicits
+  with MVRegisterImplicits
+  with ORMapImplicits
+  with RWSetImplicits

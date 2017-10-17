@@ -14,8 +14,17 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.syntax
+package io.demograph.crdt.util
 
-trait AllSyntax
-  extends JoinSyntax
-  with SemilatticeSyntax
+import simulacrum.typeclass
+
+/**
+ * This could be an upper type for Monoid[T], it is intended to represent the same concept of emptiness, i.e. it should
+ * satisfy the same laws, if it were to be used in conjunction with an `append`. However, we have a use case for
+ * emptiness without needing `append`
+ */
+// $COVERAGE-OFF$ Generated typeclasses do not require test-coverage
+@typeclass trait Empty[T] {
+  def empty: T
+}
+// $COVERAGE-ON$

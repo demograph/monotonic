@@ -17,48 +17,29 @@
 package io.demograph.crdt.util
 
 import cats.functor.Contravariant
-import io.demograph.crdt.delta.causal.CausalCRDT
-import io.demograph.crdt.delta.dot.{ CompactDotSet, Dot, DotStore }
-import io.demograph.crdt.delta.map.ORMap
-import io.demograph.crdt.delta.set.AWSet
-import org.scalatest.enablers.Aggregating.aggregatingNatureOfGenTraversable
-import org.scalatest.enablers.{ Aggregating, Containing }
+import org.scalatest.enablers.{ Aggregating, Containing, Size }
 
 import scala.collection.GenTraversable
-import cats.syntax.contravariant._
 /**
  *
  */
 trait ScalaTestImplicits {
 
-  implicit def awSetContaining[I, E]: Containing[AWSet[I, E]] = new Containing[AWSet[I, E]] {
-    override def contains(container: AWSet[I, E], element: Any): Boolean =
-      container.contains(element)
-
-    override def containsOneOf(container: AWSet[I, E], elements: Seq[Any]): Boolean =
-      elements.count(container.contains) == 1
-
-    override def containsNoneOf(container: AWSet[I, E], elements: Seq[Any]): Boolean =
-      !elements.exists(container.contains)
+  implicit val contravariantSize: Contravariant[Size] = new Contravariant[Size] {
+    override def contramap[A, B](fa: Size[A])(f: (B) ⇒ A): Size[B] = (obj: B) => fa.sizeOf(f(obj))
   }
 
-  implicit def orMapContaining[I, K, V, C](implicit ds: DotStore[V, I], causal: CausalCRDT[I, V, C]): Containing[ORMap[I, K, V, C]] =
-    new Containing[ORMap[I, K, V, C]] {
-      override def contains(container: ORMap[I, K, V, C], element: Any): Boolean = element match {
-        case k: K @unchecked ⇒ container.contains(k)
-        case v: V @unchecked ⇒ container.dotStore.dotMap.valuesIterator.contains(v)
-        case kv: (K, V) @unchecked ⇒ container.dotStore.dotMap.exists(_ == kv)
-        case _ ⇒ false
-      }
+  implicit val contravariantContaining: Contravariant[Containing] = new Contravariant[Containing] {
+    override def contramap[A, B](fa: Containing[A])(f: (B) ⇒ A): Containing[B] = new Containing[B] {
+      override def containsOneOf(container: B, elements: Seq[Any]): Boolean = fa.containsOneOf(f(container), elements)
 
-      override def containsOneOf(container: ORMap[I, K, V, C], elements: Seq[Any]): Boolean =
-        elements.count(e ⇒ contains(container, e)) == 1
+      override def containsNoneOf(container: B, elements: Seq[Any]): Boolean = fa.containsNoneOf(f(container), elements)
 
-      override def containsNoneOf(container: ORMap[I, K, V, C], elements: Seq[Any]): Boolean =
-        elements.count(e ⇒ contains(container, e)) == 0
+      override def contains(container: B, element: Any): Boolean = fa.contains(f(container), element)
     }
+  }
 
-  implicit val covariantAggregating: Contravariant[Aggregating] = new Contravariant[Aggregating] {
+  implicit val contravariantAggregating: Contravariant[Aggregating] = new Contravariant[Aggregating] {
     override def contramap[A, B](fa: Aggregating[A])(f: (B) ⇒ A): Aggregating[B] = new Aggregating[B] {
       override def containsAllOf(aggregation: B, eles: Seq[Any]): Boolean = fa.containsAllOf(f(aggregation), eles)
 
@@ -72,8 +53,4 @@ trait ScalaTestImplicits {
         fa.containsTheSameElementsAs(f(leftAggregation), rightAggregation)
     }
   }
-
-  implicit def aggrCDS[T]: Aggregating[CompactDotSet[T]] =
-    aggregatingNatureOfGenTraversable[Dot[T], Traversable].contramap[CompactDotSet[T]](_.toTraversable)
-
 }

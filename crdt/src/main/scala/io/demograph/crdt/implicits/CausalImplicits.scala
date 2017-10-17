@@ -16,10 +16,10 @@
 
 package io.demograph.crdt.implicits
 
-import algebra.lattice.JoinSemilattice
-import io.demograph.crdt.delta.causal.Causal
+import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
 import io.demograph.crdt.delta.causal.CausalInstances._
-import io.demograph.crdt.delta.dot._
+import io.demograph.crdt.delta.causal.{ CausalCRDT, _ }
+import io.demograph.crdt.delta.dot.{ Dotted, DotStore }
 
 /**
  *
@@ -27,11 +27,12 @@ import io.demograph.crdt.delta.dot._
 trait CausalImplicits {
 
   /* implicit Causal instances */
-  implicit def causalDotSet[I]: Causal[I, DotSet[I]] = new CausalDotSet[I]
+  implicit def causalDotSet[E: Dotted]: BoundedJoinSemilattice[EventSetCRDT[E]] = new DotSetCRDTLattice[E]
 
-  implicit def causalDotFun[I, V: JoinSemilattice]: Causal[I, DotFun[I, V]] = new CausalDotFun[I, V]
+  implicit def causalDotFun[E: Dotted, V: JoinSemilattice]: BoundedJoinSemilattice[EventFunCRDT[E, V]] = new DotFunCRDTLattice[E, V]
 
-  implicit def causalDotMap[I, K, V](implicit dotStore: DotStore[V, I], causalV: Causal[I, V]): Causal[I, DotMap[I, K, V]] = new CausalDotMap[I, K, V]
+  implicit def causalDotMap[E: Dotted, K, V <: DotStore[E]](implicit vLattice: BoundedJoinSemilattice[CausalCRDT[E, V]]): BoundedJoinSemilattice[EventMapCRDT[E, K, V]] =
+    new DotMapCRDTLattice[E, K, V]
 
-  implicit def causalDotStoreProduct[I, CDS1, CDS2](implicit ds1: DotStore[CDS1, I], ds2: DotStore[CDS2, I], c1: Causal[I, CDS1], c2: Causal[I, CDS2]): Causal[I, (CDS1, CDS2)] = new CausalDotStoreProduct[I, CDS1, CDS2]
+  //  implicit def causalDotStoreProduct[E, CDS1, CDS2](implicit ds1: DotStore[CDS1, E], ds2: DotStore[CDS2, E], c1: Causal[E, CDS1], c2: Causal[E, CDS2]): Causal[E, (CDS1, CDS2)] = new CausalDotStoreProduct[E, CDS1, CDS2]
 }

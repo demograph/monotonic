@@ -14,21 +14,35 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.delta.flag
+package io.demograph.crdt.instances
 
 import io.demograph.crdt.delta.causal.{ CausalCRDT, CausalContext }
-import io.demograph.crdt.delta.dot.DotSet
+import io.demograph.crdt.delta.dot._
 
 /**
  *
  */
-object EWFlagInstances {
+object ORMap {
+  type ORMap[E, K, V <: DotStore[E]] = CausalCRDT[E, DotMap[E, K, V]]
 
-  class CausalCRDTewFlag[I] extends CausalCRDT[I, DotSet[I], EWFlag[I]] {
-    override def dotStore(t: EWFlag[I]): DotSet[I] = t.dotStore
+  def empty[E: Dotted, K, V <: DotStore[E]]: ORMap[E, K, V] = CausalCRDT(DotMap.empty, CausalContext.empty)
 
-    override def context(t: EWFlag[I]): CausalContext[I] = t.context
+  trait Query[E, K, V <: DotStore[E]] {
+    def contains(key: K): Boolean
 
-    override def instance(dotStore: DotSet[I], context: CausalContext[I]): EWFlag[I] = EWFlag(dotStore, context)
+    def size: Int
+
+    def get(key: K): Option[V]
+
+    def iterable: Iterable[(K, V)]
   }
+
+  trait Mutate[E, K, V <: DotStore[E]] {
+    def mutateValue(f: CausalCRDT[E, V] ⇒ CausalCRDT[E, V], key: K): ORMap[E, K, V]
+
+    def remove(key: K): ORMap[E, K, V]
+
+    def clear: ORMap[E, K, V]
+  }
+
 }

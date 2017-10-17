@@ -18,22 +18,18 @@ package io.demograph.crdt.delta.dot
 
 import algebra.Eq
 import algebra.laws.LogicLaws
-import cats.functor.Contravariant
 import io.demograph.crdt.CatsSpec
-import io.demograph.crdt.util.ScalaTestImplicits
+import io.demograph.crdt.util.{ CompactDotSetImplicits, ScalaTestImplicits }
 import org.scalacheck.Arbitrary._
 import org.scalacheck.{ Arbitrary, Gen }
 import org.scalatest.Matchers
 import org.scalatest.enablers.Aggregating._
-import org.scalatest.enablers.Aggregating
 import org.scalatest.prop.ScalaCheckPropertyChecks
-
-import scala.collection.GenTraversable
 
 /**
  *
  */
-class CompactDotSetTest extends CatsSpec with Matchers with ScalaCheckPropertyChecks with ScalaTestImplicits {
+class CompactDotSetTest extends CatsSpec with Matchers with ScalaCheckPropertyChecks with ScalaTestImplicits with CompactDotSetImplicits {
 
   implicit def eqCDS: Eq[CompactDotSet[String]] = Eq.fromUniversalEquals
 

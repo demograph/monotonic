@@ -21,7 +21,16 @@ package io.demograph.crdt
  */
 package object implicits {
   object all extends AllImplicits
+  object shim extends ShimImplicits0
+
   object dots extends DotImplicits
   object causal extends CausalImplicits
-  object causalcrdt extends CausalCRDTImplicits
+
+  object ewflag extends EWFlagImplicits
+  object mvregister extends MVRegisterImplicits
+
+  object awset extends AWSetImplicits
+  object rwset extends AWSetImplicits
+
+  object ormap extends ORMapImplicits
 }

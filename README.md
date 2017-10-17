@@ -93,6 +93,6 @@ as the Reader signals its demand. As long as there is demand, all writes
 (to the given key) are propagated opportunistically. The very first
 element produced will reflect the entire state up to the point that
 demand was first signaled; no optimization takes place in the form of
-splitting it up in bite-size chunks (if you are creating a `Set` that
-fills your entire memory, that `Set` will be passed to the Reader).
+splitting it up in bite-size chunks (if you are creating a `SetCRDT` that
+fills your entire memory, that `SetCRDT` will be passed to the Reader).
 

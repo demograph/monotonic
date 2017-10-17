@@ -16,21 +16,18 @@
 
 package io.demograph.crdt.delta
 
-import algebra.lattice.BoundedJoinSemilattice
-import io.demograph.crdt.TestSpec
-import io.demograph.crdt.delta.causal.CausalContext
+import io.demograph.crdt.{ Session, TestSpec }
+import io.demograph.crdt.delta.causal.{ CausalCRDT, CausalContext, DotCC }
 import io.demograph.crdt.delta.dot._
-import io.demograph.crdt.delta.set.AWSet
+import io.demograph.crdt.instances.AWSet
+import io.demograph.crdt.instances.AWSet.AWSet
 import io.demograph.crdt.implicits.all._
-import io.demograph.crdt.syntax.joinSyntax._
-import io.demograph.crdt.gen.History._
-import CRDTImplicits._
-import org.scalatest.prop.Generator
+import cats.syntax.semigroup._
 
 /**
  *
  */
-class AWSetTest extends TestSpec {
+class AWSetTest extends TestSpec with CRDTSpec {
 
   behavior of "AWSet"
 
@@ -40,64 +37,64 @@ class AWSetTest extends TestSpec {
     // Create a basic AWSetGen, where identities are represented using Int's and the payload-type is Long
     val awSet = AWSet.empty[Int, Long]
 
-    val awDelta: AWSet[Int, Long] = awSet.add(0)(-1)
-    val expectedDots: Dots[Int] = Set(Dot(0, 1))
-    val expectedAWSet: AWSet[Int, Long] = AWSet(DotMap(Map(-1l → DotSet(expectedDots))), CausalContext(expectedDots))
+    val awDelta: AWSet[Dot[Int], Long] = awSet.add(Long.MaxValue)
+    val expectedDot: Dot[Int] = Dot(replicaID, 0)
+    val expectedAWSet: AWSet[Dot[Int], Long] = CausalCRDT(DotMap(Long.MaxValue → DotSet(expectedDot)), CausalContext(expectedDot))
 
     awDelta shouldBe expectedAWSet
 
-    val updated = joinSyntax(awSet) join awDelta
+    val updated = awSet combine awDelta
 
     updated shouldBe expectedAWSet
   }
 
   it should "support delta-removal" in {
-    val dots: Dots[Int] = Set(Dot(0, 1))
-    val dotMap = DotMap(Map(-1l → DotSet(dots)))
-    val causalContext = CausalContext(dots)
-    val awSet = AWSet(dotMap, causalContext)
+    val dot: Dot[Int] = Dot(replicaID, 1)
+    val awSet: AWSet[Dot[Int], Long] = CausalCRDT(DotMap(Long.MaxValue → DotSet(dot)), CausalContext(dot))
+    val awDelta: AWSet[Dot[Int], Long] = awSet.remove(Long.MaxValue)
 
-    val awDelta = awSet.remove(0)(-1)
-
-    val expectedAWSet: AWSet[Int, Long] = AWSet(DotMap.empty, CausalContext(dots))
+    val expectedAWSet: AWSet[Dot[Int], Long] = CausalCRDT(DotMap.empty, CausalContext(dot))
 
     awDelta shouldBe expectedAWSet
 
-    val updated = awSet join awDelta
+    val updated = awSet combine awDelta
     updated shouldBe expectedAWSet
   }
 
   it should "support clearing" in {
-    val fst: Dots[Int] = Set(Dot(0, 1))
-    val snd: Dots[Int] = Set(Dot(1, 1))
-    val trd: Dots[Int] = Set(Dot(0, 1))
-    val dots: Dots[Int] = Set(fst, snd, trd).flatten
-    val dotMap = DotMap(Map(-1l → DotSet(fst), 0l → DotSet(snd), 1l → DotSet(trd)))
-    val causalContext = CausalContext(dots)
+    val fst: Dot[Int] = Dot(0, 1)
+    val snd: Dot[Int] = Dot(1, 1)
+    val trd: Dot[Int] = Dot(0, 2)
+    val dots: Dots[Int] = Set(fst, snd, trd)
 
     // Construct an AWSetGen with three added elements: {-1, 0, 1}
-    val awSet: AWSet[Int, Long] = AWSet(dotMap, causalContext)
-    val awDelta: AWSet[Int, Long] = awSet.clear(0)
-    val expectedAWSet: AWSet[Int, Long] = AWSet(DotMap.empty, causalContext)
+    val causalContext = CausalContext.from(dots)
+    val awSet: AWSet[Dot[Int], Long] = CausalCRDT(
+      DotMap(-1L → DotSet(fst), 0L → DotSet(snd), 1L → DotSet(trd)),
+      causalContext)
+
+    val awDelta: AWSet[Dot[Int], Long] = awSet.clear
+
+    val expectedAWSet: AWSet[Dot[Int], Long] = CausalCRDT(DotMap.empty, causalContext)
 
     awDelta shouldBe expectedAWSet
 
-    val updated = awSet join awDelta
+    val updated = awSet combine awDelta
     updated shouldBe expectedAWSet
   }
 
   it should "support retrieving the current elements" in {
-    val fst: Dots[Int] = Set(Dot(0, 1))
-    val snd: Dots[Int] = Set(Dot(1, 1))
-    val trd: Dots[Int] = Set(Dot(0, 1))
-    val dots: Dots[Int] = Set(fst, snd, trd).flatten
-    val dotMap = DotMap(Map(-1l → DotSet(fst), 0l → DotSet(snd), 1l → DotSet(trd)))
-    val causalContext = CausalContext(dots)
+    val fst: Dot[Int] = Dot(0, 1)
+    val snd: Dot[Int] = Dot(1, 1)
+    val trd: Dot[Int] = Dot(0, 1)
+    val dots: Dots[Int] = Set(fst, snd, trd)
+    val causalContext = CausalContext.from(dots)
 
     // Construct an AWSetGen with three added elements: {-1, 0, 1}
-    val awSet: AWSet[Int, Long] = AWSet(dotMap, causalContext)
+    val awSet: AWSet[Dot[Int], Long] =
+      CausalCRDT(DotMap(Map(-1L → DotSet(fst), 0L → DotSet(snd), 1L → DotSet(trd))), causalContext)
 
-    awSet.elements should contain theSameElementsAs Set(-1l, 0l, 1l)
+    awSet.elements should contain theSameElementsAs Set(-1L, 0L, 1L)
   }
 
   /* Property checks - Doesn't work anymore since migrating to newer scala-test. Requires undocumented props.Generator */

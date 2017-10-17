@@ -17,27 +17,27 @@
 package io.demograph.crdt.delta.dot
 
 /**
- * a DotSet is simply a set of dots
+ * a DotSet is simply a set of events
  *
  * @param dots
- * @tparam I
+ * @tparam E
  */
-case class DotSet[I](dots: Dots[I])
+case class DotSet[E] private (dots: Set[E]) extends DotStore[E]
 
 object DotSet {
 
   /**
    * Produces an empty DotSet
    */
-  def empty[I]: DotSet[I] = DotSet(Dots.empty)
+  def empty[E]: DotSet[E] = new DotSet(Set.empty)
 
   /**
-   * Produces a singleton DotSet
+   * Produces an DotSet from the supplied events
    */
-  def single[I](i: I, v: Int = 0): DotSet[I] = single(Dot(i, v))
+  def apply[E](events: E*): DotSet[E] = new DotSet(Set(events: _*))
 
   /**
-   * Produces a singleton DotSet
+   * Produces an DotSet based on the given Set[Event]
    */
-  def single[I](dot: Dot[I]) = DotSet(Dots.single(dot))
+  def from[E](events: Set[E]): DotSet[E] = new DotSet(events)
 }

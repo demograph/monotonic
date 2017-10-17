@@ -16,13 +16,11 @@
 
 package io.demograph.crdt.delta.dot
 
-import algebra.lattice.BoundedJoinSemilattice
-
 /**
  * The state of a causal CRDT will use some kind of dot store, which acts as a container for data-type specific
- * information. A dot store can be queried about the set of event identifiers (dots) corresponding to the relevant
- * operations in the container, by function dots, which takes a dot store and returns a set of dots
+ * information. A dot store can be queried about the set of event identifiers (events) corresponding to the relevant
+ * operations in the container, by function events, which takes a dot store and returns a set of events
  */
-trait DotStore[DS, I] extends BoundedJoinSemilattice[DS] {
-  def dots(store: DS): Dots[I]
+trait DotStore[E] {
+  def dots: Set[E]
 }

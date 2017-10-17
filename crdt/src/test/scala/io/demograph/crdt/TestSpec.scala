@@ -18,26 +18,23 @@ package io.demograph.crdt
 
 import io.demograph.crdt.util.ScalaTestImplicits
 import org.scalatest.concurrent.{ Eventually, ScalaFutures }
-import org.scalatest.enablers.Containing
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.prop.ScalaCheckDrivenPropertyChecks
 import org.scalatest.{ FlatSpecLike, Matchers, OptionValues }
-
-import scala.collection.JavaConverters._
 
 /**
  *
  */
-trait TestSpec extends FlatSpecLike with Matchers with GeneratorDrivenPropertyChecks with Eventually with ScalaFutures
+trait TestSpec extends FlatSpecLike with Matchers with ScalaCheckDrivenPropertyChecks with Eventually with ScalaFutures
   with OptionValues with ScalaTestImplicits {
 
-  implicit def containingIterator[T]: Containing[java.lang.Iterable[T]] = new Containing[java.lang.Iterable[T]] {
-    override def contains(container: java.lang.Iterable[T], element: Any): Boolean =
-      container.asScala.toIterator.contains(element)
-
-    override def containsOneOf(container: java.lang.Iterable[T], elements: Seq[Any]): Boolean =
-      container.asScala.toSet.intersect(elements.toSet).size == 1 // <- Does not exit early once |intersection| > 1 is established
-
-    override def containsNoneOf(container: java.lang.Iterable[T], elements: Seq[Any]): Boolean =
-      container.asScala.toIterator.collectFirst { case elem if elements.contains(elem) => true }.isEmpty
-  }
+  //  implicit def containingIterator[T]: Containing[java.lang.Iterable[T]] = new Containing[java.lang.Iterable[T]] {
+  //    override def contains(container: java.lang.Iterable[T], element: Any): Boolean =
+  //      container.asScala.toIterator.contains(element)
+  //
+  //    override def containsOneOf(container: java.lang.Iterable[T], elements: Seq[Any]): Boolean =
+  //      container.asScala.toSet.intersect(elements.toSet).size == 1 // <- Does not exit early once |intersection| > 1 is established
+  //
+  //    override def containsNoneOf(container: java.lang.Iterable[T], elements: Seq[Any]): Boolean =
+  //      container.asScala.toIterator.collectFirst { case elem if elements.contains(elem) => true }.isEmpty
+  //  }
 }

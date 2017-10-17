@@ -48,6 +48,7 @@ object DependenciesConf {
     // test
     "org.scalatest" %% "scalatest" % "3.2.0-SNAP9" % Test,
     "org.scalacheck" %% "scalacheck" % "1.13.5" % Test,
+//    "org.typelevel" %% "cats-testkit" % "0.9.0" % Test,
     "eu.timepit" %% "refined-scalacheck" % "0.8.2" % Test,
     "org.scalamock" %% "scalamock-scalatest-support" % "3.6.0" % Test
   )

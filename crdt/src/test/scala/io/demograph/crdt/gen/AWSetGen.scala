@@ -16,18 +16,16 @@
 
 package io.demograph.crdt.gen
 
-import io.demograph.crdt.delta.set.AWSet
-import io.demograph.crdt.gen.History.Mutator
-import org.scalacheck.Arbitrary._
-import org.scalacheck.{ Arbitrary, Cogen, Gen }
+import io.demograph.crdt.instances.AWSet.AWSet
+import org.scalacheck.Cogen
 /**
  *
  */
 object AWSetGen {
 
-  implicit def awSetCoGen[I, E]: Cogen[AWSet[I, E]] = Cogen(a ⇒ a.dotStore.hashCode().asInstanceOf[Long] << 32 + a.context.hashCode())
+  implicit def awSetCoGen[I, E]: Cogen[AWSet[I, E]] = Cogen(a ⇒ a.eventStore.hashCode().asInstanceOf[Long] << 32 + a.context.hashCode())
 
-  def addMutator[I, E: Arbitrary](i: I): Mutator[AWSet[I, E]] = arbitrary[E].map(e ⇒ (awSet: AWSet[I, E]) ⇒ awSet.add(i)(e))
+  //  def addMutator[I, E: Arbitrary](i: I): Mutator[AWSet[I, E]] = arbitrary[E].map(e ⇒ (awSet: AWSet[I, E]) ⇒ awSet.add(i)(e))
 
-  def removeMutator[I, E](i: I)(implicit a: Arbitrary[AWSet[I, E]]): Mutator[AWSet[I, E]] = Gen.function1(arbitrary[AWSet[I, E]])
+  //  def removeMutator[I, E](i: I)(implicit a: Arbitrary[AWSet[I, E]]): Mutator[AWSet[I, E]] = Gen.function1(arbitrary[AWSet[I, E]])
 }

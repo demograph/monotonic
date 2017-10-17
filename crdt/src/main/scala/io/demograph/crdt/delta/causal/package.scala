@@ -16,9 +16,17 @@
 
 package io.demograph.crdt.delta
 
+import io.demograph.crdt.delta.dot.{ DotFun, DotMap, DotSet, DotStore }
+
 /**
  *
  */
-trait CompressedDots
-//case class SingleDot[I, U : Order](dot: Dot[I, U]) extends CompressedDots
-//case class DotRange[I, U : Order](start: Dot[I, U], end: Dot[I, U]) extends CompressedDots
+package object causal {
+
+  type EventSetCRDT[E] = CausalCRDT[E, DotSet[E]]
+
+  type EventFunCRDT[E, V] = CausalCRDT[E, DotFun[E, V]]
+
+  type EventMapCRDT[E, K, V <: DotStore[E]] = CausalCRDT[E, DotMap[E, K, V]]
+
+}

@@ -14,21 +14,15 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.delta.set
+package io.demograph.crdt
+
+import simulacrum.typeclass
 
 /**
  *
  */
-trait CRDTSet[I, E] {
-
-  type Repr <: CRDTSet[I, E]
-
-  def add(i: I)(e: E): Repr
-
-  def remove(i: I)(e: E): Repr
-
-  def clear(i: I): Repr
-
-  def elements: Iterable[E]
-
+// $COVERAGE-OFF$ Generated typeclasses do not require test-coverage
+@typeclass trait Session[H] {
+  def localhost: H
 }
+// $COVERAGE-ON$

@@ -18,31 +18,33 @@ package io.demograph.crdt.delta.dot
 
 import algebra.lattice.JoinSemilattice
 /**
- * the generic DotFun[V] is a map from dots to some JoinSemilattice V
+ * the generic DotFun[V] is a map from events to some JoinSemilattice V
  *
  * @param dotFun
- * @param ev$1 Proof that V is a JoinSemilattice, note that the paper requires it to be a Lattice. Not sure if that was
- *             a case of brevity, or if that is actually a requirement... guess we'll find out soon enough :)
- * @tparam I
+ * @tparam E
  * @tparam V
  */
-case class DotFun[I, V: JoinSemilattice](dotFun: Map[Dot[I], V]) {
-  val dots: Dots[I] = dotFun.keys.toSet
+case class DotFun[E, V: JoinSemilattice](dotFun: Map[E, V]) extends DotStore[E] {
+  override lazy val dots: Set[E] = dotFun.keySet
 }
 object DotFun {
 
   /**
    * Produces an empty Dot-function
    */
-  def empty[I, V: JoinSemilattice]: DotFun[I, V] = new DotFun(Map.empty)
+  def empty[E, V: JoinSemilattice]: DotFun[E, V] = new DotFun(Map.empty)
 
   /**
    * Produces a singleton Dot-function
    */
-  def single[I, V: JoinSemilattice](i: I, v: Int, value: V): DotFun[I, V] = single(Dot(i, v), value)
+  def single[E, V: JoinSemilattice](dot: E, v: V): DotFun[E, V] = new DotFun(Map(dot → v))
 
   /**
-   * Produces a singleton Dot-function
+   * Produces an Event function based on the given dot-value pairs
+   * @param dotValues
+   * @tparam E
+   * @tparam V
+   * @return
    */
-  def single[I, V: JoinSemilattice](dot: Dot[I], v: V): DotFun[I, V] = new DotFun(Map(dot → v))
+  def apply[E, V: JoinSemilattice](dotValues: (E, V)*): DotFun[E, V] = new DotFun(Map(dotValues: _*))
 }

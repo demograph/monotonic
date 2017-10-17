@@ -17,10 +17,11 @@
 package io.demograph.crdt.delta.causal
 
 import algebra.lattice.BoundedJoinSemilattice
+import io.demograph.crdt.delta.dot.DotStore
 
 /**
  * A Causal type is the product of a DotStore and a CausalContext. We are more lenient than the paper in not
  * requiring it actually being a DotStore instance. This eases the creation of derived Causal instances, such as
- * using a product of two DotStores as the dotStore instance.
+ * using a product of two DotStores as the eventStore instance.
  */
-trait Causal[I, DS] extends BoundedJoinSemilattice[(DS, CausalContext[I])]
+trait Causal[E, DS <: DotStore[E]] extends BoundedJoinSemilattice[(DS, CausalContext[E])]

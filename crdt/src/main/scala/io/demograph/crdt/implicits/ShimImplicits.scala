@@ -14,11 +14,22 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.syntax
+package io.demograph.crdt.implicits
+
+import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
+import cats.kernel.{ Monoid, Semilattice }
 
 /**
  *
  */
-trait DeltaSyntax {
-
+trait ShimImplicits1 {
+  implicit def algebraCatsLattice[T](implicit jsl: JoinSemilattice[T]): Semilattice[T] =
+    jsl.joinSemilattice
 }
+
+trait ShimImplicits0 extends ShimImplicits1 {
+  implicit def algebraCatsBoundedLattice[T](implicit bjsl: BoundedJoinSemilattice[T]): Semilattice[T] with Monoid[T] =
+    bjsl.joinSemilattice
+}
+
+object ShimImplicits extends ShimImplicits0

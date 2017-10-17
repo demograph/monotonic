@@ -14,11 +14,21 @@
  * limitations under the License.
  */
 
-package io.demograph.crdt.delta.graph
+package io.demograph.crdt.delta
+
+import io.demograph.crdt.Session
+import io.demograph.crdt.delta.causal.CausalCRDT
+import io.demograph.crdt.delta.dot.{ Dot, DotStore }
+import io.demograph.crdt.instances.ORMap.ORMap
 
 /**
  *
  */
-class RWHyperGraph {
+trait CRDTSpec {
 
+  val replicaID = 0
+
+  implicit val mockSession: Session[Int] = new Session[Int] {
+    override def localhost: Int = replicaID
+  }
 }
