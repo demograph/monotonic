@@ -40,6 +40,7 @@ object DependenciesConf {
     "org.typelevel" %% "cats-effect" % "0.4-09e64a7",
     "org.typelevel" %% "algebra" % "0.6.0",
     "org.typelevel" %% "algebra-laws" % "0.6.0",
+    "org.typelevel" %% "spire-extras" % "0.14.1",
 
     // reactive streams
     "org.reactivestreams" % "reactive-streams" % "1.0.0",
