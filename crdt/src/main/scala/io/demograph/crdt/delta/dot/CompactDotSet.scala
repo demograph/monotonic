@@ -39,7 +39,7 @@ import scala.collection.{ GenSet, GenTraversableOnce, SetLike, immutable }
  */
 object CompactDotSet {
   private[dot] implicit val bslIntervalTrie: BoundedSemilattice[IntervalTrie[Int]] = algebra[Int].joinSemilattice
-  private val MIN_VERSION = 0
+  private[dot] val MIN_VERSION = 0
 
   def empty[H]: CompactDotSet[H] = new CompactDotSet[H](Map.empty)
 
@@ -111,7 +111,7 @@ final case class CompactDotSet[H] private (elems: Map[H, IntervalTrie[Int]]) ext
 
   override def intersect(xs: GenSet[Dot[H]]): CompactDotSet[H] = xs match {
     case that @ CompactDotSet(_) ⇒ GenBool[CompactDotSet[H]].and(this, that)
-    case _ ⇒ super.--(xs)
+    case _ ⇒ super.intersect(xs)
   }
 
   override lazy val toIterable: immutable.Iterable[Dot[H]] = for {

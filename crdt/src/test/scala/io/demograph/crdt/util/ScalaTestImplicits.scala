@@ -16,12 +16,16 @@
 
 package io.demograph.crdt.util
 
+import cats.functor.Contravariant
 import io.demograph.crdt.delta.causal.CausalCRDT
-import io.demograph.crdt.delta.dot.DotStore
+import io.demograph.crdt.delta.dot.{ CompactDotSet, Dot, DotStore }
 import io.demograph.crdt.delta.map.ORMap
 import io.demograph.crdt.delta.set.AWSet
-import org.scalatest.enablers.Containing
+import org.scalatest.enablers.Aggregating.aggregatingNatureOfGenTraversable
+import org.scalatest.enablers.{ Aggregating, Containing }
 
+import scala.collection.GenTraversable
+import cats.syntax.contravariant._
 /**
  *
  */
@@ -53,5 +57,23 @@ trait ScalaTestImplicits {
       override def containsNoneOf(container: ORMap[I, K, V, C], elements: Seq[Any]): Boolean =
         elements.count(e ⇒ contains(container, e)) == 0
     }
+
+  implicit val covariantAggregating: Contravariant[Aggregating] = new Contravariant[Aggregating] {
+    override def contramap[A, B](fa: Aggregating[A])(f: (B) ⇒ A): Aggregating[B] = new Aggregating[B] {
+      override def containsAllOf(aggregation: B, eles: Seq[Any]): Boolean = fa.containsAllOf(f(aggregation), eles)
+
+      override def containsAtMostOneOf(aggregation: B, eles: Seq[Any]): Boolean = fa.containsAtMostOneOf(f(aggregation), eles)
+
+      override def containsAtLeastOneOf(aggregation: B, eles: Seq[Any]): Boolean = fa.containsAtLeastOneOf(f(aggregation), eles)
+
+      override def containsOnly(aggregation: B, eles: Seq[Any]): Boolean = fa.containsAtLeastOneOf(f(aggregation), eles)
+
+      override def containsTheSameElementsAs(leftAggregation: B, rightAggregation: GenTraversable[Any]): Boolean =
+        fa.containsTheSameElementsAs(f(leftAggregation), rightAggregation)
+    }
+  }
+
+  implicit def aggrCDS[T]: Aggregating[CompactDotSet[T]] =
+    aggregatingNatureOfGenTraversable[Dot[T], Traversable].contramap[CompactDotSet[T]](_.toTraversable)
 
 }
