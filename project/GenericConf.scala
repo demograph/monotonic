@@ -13,12 +13,12 @@ object GenericConf {
   )
 
   def settings(javaVersion: String = "1.8"): Seq[Setting[_]] = commonSettings ++ Seq(
-    scalaVersion := "2.12.2",
+    scalaVersion := "2.12.4",
     scalacOptions ++= Seq("-feature", "-language:higherKinds", "-language:implicitConversions", "-deprecation", "-Ydelambdafy:method"),
     javacOptions ++= Seq("-Xlint:deprecation", "-Xlint:unchecked", "-Xlink:-warn-missing-interpolator", "-g:vars"),
     cancelable in Global := true,
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)
     //    parallelExecution in Test := false,
 //    fork in Test := true
   ) ++ javaVersionSettings(javaVersion)
