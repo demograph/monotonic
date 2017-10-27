@@ -42,12 +42,21 @@ trait MVar[S] {
 
   /**
    * When an update is dispatched, it can be handled here. Responsibilities include:
-   * - Updating the state of the `NVar`
+   * - Updating the state of the `MVar`
    * - Notifying any subscribers
    *
    * @param s
    */
   protected[mvar] def onUpdate(s: S): Unit = ()
+
+  /**
+   * When an update is dispatched, it can be handled here. Responsibilities include:
+   * - Updating the state of the `MVar`
+   * - Notifying any subscribers
+   *
+   * @param f The function that will be applied to the data (atomically, and re-joined)
+   */
+  protected[mvar] def onUpdate(f: S ⇒ S): Unit = ()
 
   /**
    * Exposes the reactive-streams Publisher interface so that derived MVars can subscribe. This Publisher will send

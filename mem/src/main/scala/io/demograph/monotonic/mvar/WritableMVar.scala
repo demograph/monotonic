@@ -27,4 +27,6 @@ class WritableMVar[S: JoinSemilattice](initialValue: S) extends AtomicMVar[S](in
    * @param s the value to be interpreted as an update
    */
   override def update(s: S): Unit = onUpdate(s)
+
+  override def update(f: S ⇒ S): Unit = onUpdate(f)
 }

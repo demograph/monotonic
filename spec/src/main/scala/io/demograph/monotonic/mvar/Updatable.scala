@@ -26,4 +26,10 @@ trait Updatable[T] {
    * @param t the value to be interpreted as an update
    */
   def update(t: T): Unit
+
+  /**
+   * Use a function to modify a current state into a new state
+   * @param f
+   */
+  def update(f: T ⇒ T): Unit
 }

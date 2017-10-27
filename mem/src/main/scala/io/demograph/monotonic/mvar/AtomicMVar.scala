@@ -43,6 +43,17 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
     updateSubscribers(enqueue(delta) andThen dispatchReadyElements)
   }
 
+  override protected[mvar] def onUpdate(f: V ⇒ V): Unit = {
+    value.getAndUpdate(new UnaryOperator[V] {
+      override def apply(currentState: V): V = {
+        val delta = f(currentState)
+        val newState = JoinSemilattice.join(currentState, delta)
+        updateSubscribers(enqueue(delta) andThen dispatchReadyElements)
+        newState
+      }
+    })
+  }
+
   val index = new AtomicLong(0L)
   val atomicMap = new ConcurrentHashMap[Long, SubscriberState[_ >: V]]()
 
@@ -63,20 +74,21 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
     }
   }
 
-  private def updateSubscribers(f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
+  /* FIXME: Temporarily changed visibility to protected. Should probably be reverted! */
+  protected def updateSubscribers(f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
     atomicMap.replaceAll((t: Long, u: SubscriberState[_ >: V]) => f(u.asInstanceOf[SubscriberState[V]]))
   }
-  private def updateSubscriber(index: Long, f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
+  protected def updateSubscriber(index: Long, f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
     atomicMap.computeIfPresent(index, (_: Long, u: SubscriberState[_ >: V]) => f(u.asInstanceOf[SubscriberState[V]]))
   }
 
-  private def addDemand(demand: Long): SubscriberState[V] ⇒ SubscriberState[V] =
+  protected def addDemand(demand: Long): SubscriberState[V] ⇒ SubscriberState[V] =
     state ⇒ state.copy(demand = demand + state.demand)
 
-  private def enqueue(element: V): SubscriberState[V] ⇒ SubscriberState[V] =
+  protected def enqueue(element: V): SubscriberState[V] ⇒ SubscriberState[V] =
     state ⇒ state.copy(queue = state.queue.enqueue(element))
 
-  private def dispatchReadyElements: SubscriberState[V] ⇒ SubscriberState[V] = state ⇒ {
+  protected def dispatchReadyElements: SubscriberState[V] ⇒ SubscriberState[V] = state ⇒ {
     import state._
     val (sendSize, toSend, newQueue) = queue.dequeue(math.min(Int.MaxValue, demand).toInt)
 
