@@ -59,10 +59,4 @@ trait ActorTestBase extends TestKitBase with TestBase {
 
   def source[T](publisher: Publisher[T]): Source[T, NotUsed] =
     Source.fromPublisher(publisher)
-
-  def source[K, V](map: MonotonicMap[K], key: K): Source[V, NotUsed] =
-    source(map.read[V](key))
-
-  def source[K, V: JoinSemilattice](map: MonotonicMap[K], key: K, element: V): Source[WriteNotification, NotUsed] =
-    source(map.write(key, element))
 }

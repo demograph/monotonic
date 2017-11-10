@@ -16,55 +16,66 @@
 
 package io.demograph.monotonic
 
-import akka.actor.{ ActorRef, ActorRefFactory }
-import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
-import org.reactivestreams.{ Publisher, Subscriber }
-import InMemMonotonicMapMessages._
-import io.demograph.monotonic.mvar.MVar
+import java.util.concurrent.atomic.AtomicReference
+import java.util.function.UnaryOperator
 
+import akka.actor.ActorRefFactory
+import algebra.lattice.BoundedJoinSemilattice
+import io.demograph.monotonic.mvar.{ ExecutionContext, UpdatableMVar }
+
+import scala.reflect.runtime.universe._
 /**
- * Constructs an in-memory monotonic.
+ * Constructs an in-memory monotonic map
  * @tparam K The key type
  */
-class InMemMonotonicMap[K](storeActor: ActorRef) extends MonotonicMap[K] {
+class InMemMonotonicMap[K](implicit ec: ExecutionContext) extends MonotonicMap[K] {
+
+  private[monotonic] val map: AtomicReference[Map[K, Map[TypeTag[_], UpdatableMVar[_]]]] = new AtomicReference(Map.empty)
 
   /**
-   * Attempts to read a stream of updates for `key` as type `V`
-   *
-   * @param key The key to read an update-stream from
-   * @tparam V The value type, which should be a JoinSemilattice (only such values can be written and thus cause updates)
-   * @return A Publisher with updates for `key` of type `V`. The stream is expected to fail iif any element
-   *         cannot be handled as if being of type `V`. If no Subscriber is created for the Publisher, or the
-   *         subscriber terminates, the Publisher is expected to clean up after itself.
+   * Retrieves the monotonic variable that supposedly is stored under `Key`. If the key does not exist, it will
+   * instantiate a new variable with initialValue, and register it for the given key
    */
-  override def read[V](key: K): Publisher[V] =
-    (s: Subscriber[_ >: V]) => storeActor ! Read(key, s.asInstanceOf[Subscriber[Any]])
+  override def get[V: BoundedJoinSemilattice: TypeTag](key: K, initialValue: V): UpdatableMVar[V] = {
+    map.get().get(key)
+      .flatMap(_.get(implicitly[TypeTag[V]]).map(_.asInstanceOf[UpdatableMVar[V]]))
+      .getOrElse {
+        val mvar = ec.mvar(initialValue)
+        put(key, mvar)
+        mvar
+      }
+  }
 
   /**
-   * Attempts to write `value` to `key`. We expect a `JoinSemilattice` for `V` as we ought to be able to merge any
-   * value, if one were to exist.
-   *
-   * @param key   The key to write the new value to
-   * @param value The value to be written
-   * @tparam V The type of the value, which should be compatible with any existing value
-   * @return A Publisher that propagates updates of the writes. This Publisher should never fail except for fatal JVM
-   *         exceptions. All other errors should be transformed to instances of `WriteNotification`. Implementations
-   *         are expected to clean up after themselves if subscribers terminate.
+   * Binds the given mvar to the given key.
    */
-  override def write[V: JoinSemilattice](key: K, value: V): Publisher[WriteNotification] =
-    (s: Subscriber[_ >: WriteNotification]) =>
-      storeActor ! Write(key, value, implicitly[JoinSemilattice[V]], s.asInstanceOf[Subscriber[WriteNotification]])
+  override def put[V: BoundedJoinSemilattice: TypeTag](key: K, mvar: UpdatableMVar[V]): Unit = {
+    val tpe = implicitly[TypeTag[V]]
+
+    map.getAndUpdate {
+      new UnaryOperator[Map[K, Map[TypeTag[_], UpdatableMVar[_]]]] {
+        override def apply(t: Map[K, Map[TypeTag[_], UpdatableMVar[_]]]): Map[K, Map[TypeTag[_], UpdatableMVar[_]]] = {
+          val typeTaggedMap: Map[TypeTag[_], UpdatableMVar[_]] = t.get(key) match {
+            case Some(inner) ⇒
+              inner.get(tpe) match {
+                case Some(mvar2) ⇒ inner + (tpe → mvar)
+                // TODO: This case describes concurrent assignment of an instance of the same variable type to the same key
+                // The correct way of dealing with it is to join both UpdatableMVars. Note that this may often not be desirable
+                // For example, if one were to assign an intersection and a union of two sets to the same key, the
+                // net effect would be that the intersection variable also becomes a union. However, we cannot prevent
+                // concurrent key assignments in general, so throwing/failing seems to be no option.
+                // For now, we accept not implementing this merge as a known bug... sorry!
+                case None ⇒ inner + (tpe → mvar)
+              }
+            case None ⇒ Map(tpe → mvar)
+          }
+          t.updated(key, typeTaggedMap)
+        }
+      }
+    }
+  }
 }
 
 object InMemMonotonicMap {
-
-  /**
-   *
-   * @param actorRefFactory The factory to use for construction of the memory-state-wrapping actor
-   * @param initialState The initial state that the actor will hold
-   * @tparam K
-   * @return
-   */
-  def apply[K](initialState: Map[K, Any] = Map.empty[K, Any])(implicit actorRefFactory: ActorRefFactory): InMemMonotonicMap[K] =
-    new InMemMonotonicMap(actorRefFactory.actorOf(InMemMonotonicMapActor.props(initialState)))
+  def apply[K](implicit ec: ExecutionContext): InMemMonotonicMap[K] = new InMemMonotonicMap
 }

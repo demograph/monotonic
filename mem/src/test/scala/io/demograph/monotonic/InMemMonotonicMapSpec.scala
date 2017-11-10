@@ -16,391 +16,79 @@
 
 package io.demograph.monotonic
 
-import akka.stream.scaladsl.Sink
-import akka.stream.testkit.TestSubscriber
-import cats.syntax.semigroup._
-import io.demograph.monotonic.InMemMonotonicMapMessages.{ Persisted, Propagated }
-import org.scalatest.concurrent.PatienceConfiguration.Timeout
+import java.util.concurrent.atomic.AtomicReference
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Try
+import algebra.instances.set._
+import io.demograph.monotonic.mvar._
+
+import scala.reflect.runtime.universe._
 /**
  *
  */
 class InMemMonotonicMapSpec extends ActorTestBase {
 
-  behavior of "InMemoryMonotonicMap"
+  behavior of "InMemMonotonicMap"
 
-  val expectNoMsgDuration: FiniteDuration = 20.millisecond
+  implicit val ec: ExecutionContext = InMemExecutionContext()
 
-  it should "return an unproductive Producer if a key is queried without initial state or updates" in withStringMap() { monotonicMap ⇒
-    val producer = monotonicMap.read[Dummy]("non-existing-key")
-    val probe = TestSubscriber.probe[Dummy]()
+  it should "return a new MVar if the key was not bound prior to retrieving it" in {
+    val newMMap = mmap[String](Map.empty)
+    val mvar: UpdatableMVar[Set[String]] = newMMap.get[Set[String]]("new-key")
+    mvar.sample shouldBe 'empty
 
-    producer.subscribe(probe)
-    probe.ensureSubscription()
-
-    probe.request(1)
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "return a Producer producing only the initial value if one is provided, it is queried for and no other updates follow" in
-    withStringMap(Map("key" → dummy)) { monotonicMap ⇒
-      val producer = monotonicMap.read[Dummy]("key")
-
-      val probe = TestSubscriber.probe[Dummy]()
-      producer.subscribe(probe)
-
-      probe.ensureSubscription()
-      probe.expectNoMsg(expectNoMsgDuration)
-
-      probe.request(1)
-      probe.expectNext(dummy)
-      probe.expectNoMsg(expectNoMsgDuration)
-    }
-
-  it should "return a Producer for writes signaling a successful write to memory" in withStringMap() { monotonicMap ⇒
-    val writeTracker = monotonicMap.write("key", dummy)
-
-    val probe = TestSubscriber.probe[WriteNotification]()
-    writeTracker.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(1)
-    probe.expectNext(Persisted())
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "return a Reader that produces a previously written value" in withStringMap() { monotonicMap ⇒
-    // Write then read
-    subscribed(monotonicMap.write("key", dummy))
-    val reader = monotonicMap.read("key")
-
-    val probe = TestSubscriber.probe[Dummy]()
-    reader.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(1)
-    probe.expectNext(dummy)
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "return a Reader that produces a value after it is written" in withStringMap() { monotonicMap ⇒
-    // Read then write
-    val reader = monotonicMap.read("key")
-    subscribed(monotonicMap.write("key", dummy))
-
-    val probe = TestSubscriber.probe[Dummy]()
-    reader.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(1)
-    probe.expectNext(dummy)
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "return a Writer that signals propagation to an active Readers" in withStringMap() { monotonicMap ⇒
-    // Read then write
-    bufferAll(monotonicMap.read("key"))
-    val writer = monotonicMap.write("key", dummy)
-
-    val probe = TestSubscriber.probe[WriteNotification]()
-    writer.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(2)
-    probe.expectNext(Persisted(), Propagated(1)) // 1 because the query being propagated to was the first subscriber
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "return a Writer that signals propagation for Readers initiated after the write occurred" in withStringMap() { monotonicMap ⇒
-    // Read then write
-    val writer = monotonicMap.write("key", dummy)
-
-    val probe = TestSubscriber.probe[WriteNotification]()
-    writer.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(2)
-    probe.expectNext(Persisted())
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    bufferAll(monotonicMap.read("key"))
-
-    probe.expectNext(Propagated(2)) // 2 because the query being propagated to was the 2nd subscriber (the write preceded)
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "join a write with an unconsumed initial state" in withStringMap(Map("key" → Dummy(Set("a")))) { monotonicMap ⇒
-    val write = monotonicMap.write("key", Dummy(Set("b")))
-
-    bufferAll(write)
-
-    val probe = TestSubscriber.probe[Dummy]()
-    val reader = monotonicMap.read[Dummy]("key")
-    reader.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(2)
-    probe.expectNext(Dummy(Set("a", "b")))
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "join consecutive unconsumed writes" in withStringMap() { monotonicMap ⇒
-    val w1 = monotonicMap.write("key", Dummy(Set("a")))
-    val w2 = monotonicMap.write("key", Dummy(Set("b")))
-
-    bufferAll(w1)
-    bufferAll(w2)
-
-    val probe = TestSubscriber.probe[Dummy]()
-    val reader = monotonicMap.read[Dummy]("key")
-    reader.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(2)
-    probe.expectNext(Dummy(Set("a", "b")))
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "broadcast a write to all readers" in withStringMap(Map("key" → Dummy(Set("a")))) { monotonicMap ⇒
-    val write = monotonicMap.write("key", Dummy(Set("b")))
-
-    bufferAll(write)
-
-    val p1 = TestSubscriber.probe[Dummy]()
-    val p2 = TestSubscriber.probe[Dummy]()
-    val r1 = monotonicMap.read[Dummy]("key")
-    val r2 = monotonicMap.read[Dummy]("key")
-    r1.subscribe(p1)
-    r2.subscribe(p2)
-
-    p1.ensureSubscription()
-    p1.expectNoMsg(expectNoMsgDuration)
-    p2.ensureSubscription()
-    p2.expectNoMsg(expectNoMsgDuration)
-
-    p1.request(2)
-    p1.expectNext(Dummy(Set("a", "b")))
-    p1.expectNoMsg(expectNoMsgDuration)
-
-    p2.request(2)
-    p2.expectNext(Dummy(Set("a", "b")))
-    p2.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "not send messages to an unsubscribed Reader" in withStringMap() { monotonicMap ⇒
-    val reader = monotonicMap.read("key")
-
-    val probe = TestSubscriber.probe[Dummy]()
-    reader.subscribe(probe)
-
-    probe.ensureSubscription()
-    probe.expectNoMsg(expectNoMsgDuration)
-
-    probe.request(1)
-    probe.cancel()
-
-    subscribed(monotonicMap.write("key", dummy))
-
-    probe.expectNoMsg(expectNoMsgDuration)
-  }
-
-  it should "not send messages to an unsubscribed Writer" in withStringMap() { monotonicMap ⇒
-    val r1Probe = subscribed(monotonicMap.read[Dummy]("key"))
-    val writerProbe = subscribed(monotonicMap.write("key", dummy))
-
-    withClue("Reader propagation should not be signaled if there was no Writer demand before its cancellation") {
-      r1Probe.request(1)
-      r1Probe.expectNext(dummy)
-
-      writerProbe.cancel()
-
-      writerProbe.expectNoMsg(expectNoMsgDuration)
-    }
-
-    withClue("Reader propagation should not be signaled to the Writer after its cancellation") {
-      val r2Probe = bufferAll(monotonicMap.read[Dummy]("key"))
-      r2Probe.expectNext(dummy)
-
-      writerProbe.expectNoMsg(expectNoMsgDuration)
+    withClue("The returned MVar should now be bound to 'new-key'") {
+      mvar.update(Set("some-element"))
+      val mvar2: UpdatableMVar[Set[String]] = newMMap.get[Set[String]]("new-key")
+      mvar2.sample shouldBe Set("some-element")
     }
   }
 
-  it should "only unsubscribe Subscriptions that cancelled" in withStringMap() { monotonicMap ⇒
-    val w1Probe = bufferAll(monotonicMap.write("key", dummy))
-    val r1Probe = bufferAll(monotonicMap.read[Dummy]("key"))
-
-    val w2Probe = subscribed(monotonicMap.write("key", Dummy(Set(""))))
-    w1Probe.cancel()
-    val r2Probe = subscribed(monotonicMap.read[Dummy]("key"))
-    r1Probe.cancel()
-
-    w2Probe.request(4)
-    r2Probe.request(4)
-
-    w2Probe.expectNext(Persisted(), Propagated(2), Propagated(4))
-    r2Probe.expectNext(Dummy(Set("")))
+  it should "return the MVar if one was previously assigned to a retrieved key" in {
+    val newMMap = mmap[String](Map("existing-key" → Map(implicitly[TypeTag[Set[String]]] → ec.mvar[Set[String]](Set("some-value")))))
+    val mvar: MVar[Set[String]] = newMMap.get[Set[String]]("existing-key")
+    mvar.sample should contain only "some-value"
   }
 
-  it should "send only WriteNotification to the initiator of the write" in withStringMap() { monotonicMap ⇒
-    bufferAll(monotonicMap.read("key"))
+  it should "support binding an MVar to a key, allowing later retrieval" in {
+    val newMMap = mmap[String](Map.empty)
+    val mvar = ec.mvar[Set[String]](Set("initial"))
+    newMMap.put("key", mvar)
 
-    val w1 = bufferAll(monotonicMap.write("key", Dummy(Set("a"))))
-    val w2 = bufferAll(monotonicMap.write("key", Dummy(Set("b"))))
-
-    withClue("Two consecutive writes to an existing single reader should only result in one update each") {
-      w1.expectNext(Persisted())
-      w2.expectNext(Persisted())
-
-      w1.expectNext(Propagated(1))
-      w2.expectNext(Propagated(1))
-
-      w1.expectNoMsg(expectNoMsgDuration)
-      w2.expectNoMsg(expectNoMsgDuration)
-    }
-
-    withClue("Two consecutive writes to a later single reader should only result in one update each") {
-      val expectedReaderIndex = 4
-      // Because 1 query, 2,3 writer, 4 => new query
-      bufferAll(monotonicMap.read("key"))
-
-      w1.expectNext(Propagated(expectedReaderIndex))
-      w2.expectNext(Propagated(expectedReaderIndex))
-
-      w1.expectNoMsg(expectNoMsgDuration)
-      w2.expectNoMsg(expectNoMsgDuration)
-    }
+    val mvar2 = newMMap.get[Set[String]]("key")
+    mvar2.sample shouldBe Set("initial")
   }
 
-  it should "signal Propagation even if demand splits writes" in withStringMap() { monotonicMap ⇒
-    val w1 = bufferAll(monotonicMap.write("key", Dummy(Set("a"))))
-    val query = subscribed(monotonicMap.read[Dummy]("key"))
+  it should "allow binding an MVar to multiple keys" in {
+    val newMMap = mmap[String](Map.empty)
+    val mvar = ec.mvar[Set[String]](Set.empty[String])
+    newMMap.put("key1", mvar)
+    newMMap.put("key2", mvar)
 
-    w1.expectNext(Persisted())
-    w1.expectNoMsg(100.millisecond)
-    query.expectNoMsg(100.millisecond)
+    val mvar1 = newMMap.get[Set[String]]("key1")
+    val mvar2 = newMMap.get[Set[String]]("key2")
 
-    query.request(2)
-    query.expectNext(Dummy(Set("a")))
-    w1.expectNext(Propagated(2))
-
-    val w2 = bufferAll(monotonicMap.write("key", Dummy(Set("b"))))
-    w2.expectNext(Persisted())
-    query.expectNext(Dummy(Set("b")))
-    w2.expectNext(Propagated(2))
+    mvar1.update(Set("shared-value"))
+    eventually(mvar2.sample shouldBe Set("shared-value"))
   }
 
-  it should "use batching when there is no demand and propagate opportunistically when there is" in withStringMap() { monotonicMap ⇒
-    val reader = monotonicMap.read("key")
+  it should "allow binding two MVars of different type to the same key" in {
+    val newMMap = mmap[String](Map.empty)
+    val mvarStringSet = ec.mvar[Set[String]](Set("1337"))
+    val mvarIntSet = ec.mvar[Set[Int]](Set(1337))
+    newMMap.put("key", mvarStringSet)
+    newMMap.put("key", mvarIntSet)
 
-    val readerProbe = TestSubscriber.probe[Dummy]()
-    reader.subscribe(readerProbe)
-    readerProbe.ensureSubscription()
-
-    subscribed(monotonicMap.write("key", Dummy(Set("a"))))
-    subscribed(monotonicMap.write("key", Dummy(Set("b"))))
-    subscribed(monotonicMap.write("key", Dummy(Set("c"))))
-    subscribed(monotonicMap.write("key", Dummy(Set("d"))))
-
-    // The first four should be received in batch, and satisfy only 1 demand
-    readerProbe.request(3)
-    readerProbe.expectNext(Dummy(Set("a", "b", "c", "d")))
-
-    subscribed(monotonicMap.write("key", Dummy(Set("e"))))
-    subscribed(monotonicMap.write("key", Dummy(Set("f"))))
-
-    subscribed(monotonicMap.write("key", Dummy(Set("g"))))
-    subscribed(monotonicMap.write("key", Dummy(Set("h"))))
-
-    // The second set of two should be individually dispatched, as demand of 2 was still there
-    readerProbe.expectNext(Dummy(Set("e")))
-    readerProbe.expectNext(Dummy(Set("f")))
-
-    // The last set of two should again be merged, as there was no demand
-    readerProbe.request(2)
-    readerProbe.expectNext(Dummy(Set("g", "h")))
+    newMMap.get[Set[String]]("key").sample shouldBe Set("1337")
+    newMMap.get[Set[Int]]("key").sample shouldBe Set(1337)
   }
 
-  it should "integrate with akka streams" in {
-    val monotonicMap = InMemMonotonicMap[String]()
-    val dummy = Dummy(Set("a"))
-    val read = source[String, Dummy](monotonicMap, "key")
-    val write = source(monotonicMap, "key", dummy)
-
-    val updated = write.take(2).runWith(Sink.seq).map(_.toSet)
-    val update = read.take(1).runWith(Sink.last)
-
-    update.futureValue shouldBe dummy
-    updated.futureValue should have size 2
+  ignore should "support concurrent binding two MVars of the same type to the same key" in {
+    // TODO: This we cannot currently support, it requires some redesign. We have to make sure that all MVar instances
+    // pointing to the same key are merged into a single MVar.
   }
 
-  it should "work for many elements, keys, readers and writers" in within(5.second) {
-    // Purpose of this test is to discover whether a difficult/typical use case encounters errors
-    // Exploratory testing + definition of a regression test is required if this one fails
-    val monotonicMap = InMemMonotonicMap[String]()
-
-    // We perform `elementCount` writes
-    val elementCount = 100
-    // to the following keys
-    val keys = Set("key1", "key2", "key3", "key4")
-
-    def reader(key: String, batchSize: Long): Future[Dummy] = source[String, Dummy](monotonicMap, key)
-      .batch[Dummy](batchSize, identity)(_ |+| _) // just to complicate demand propagation
-      .scan(dummy)(_ |+| _)
-      .dropWhile(_.set.size < elementCount)
-      .runWith(Sink.head)
-
-    def writer(key: String, element: Dummy): Future[Set[WriteNotification]] =
-      source[String, Dummy](monotonicMap, key, element).take(elementCount + 1).runWith(Sink.seq).map(_.toSet)
-
-    // for each element and key, we instantiate one Reader and one Writer (not first one type, followed by the other)
-    val queries: Set[(Future[Dummy], Future[Set[WriteNotification]])] = for {
-      element: Int ← (1 to elementCount).toSet
-      key ← keys
-    } yield (reader(key, element), writer(key, Dummy(Set(element.toString))))
-
-    // Make sure to first sequence the futures into two async computations (one for reads and one for writes)
-    val futureReads = Future.sequence(queries.map(_._1))
-    val futureWrites = Future.sequence(queries.map(_._2))
-
-    // And only block after both those are created (these are dependent on one another)
-    val reads = futureReads.futureValue(Timeout(10.seconds))
-    val writes = futureWrites.futureValue(Timeout(10.seconds))
-
-    // All readers should observe the same Dummy, with all `elementCount` elements, regardless of key
-    reads should contain only Dummy((1 to elementCount).map(_.toString).toSet)
-
-    // We have 4 different keys with different subscribers
-    writes should have size 4
-    all(writes) should have size (elementCount + 1)
+  def mmap[K](content: Map[K, Map[TypeTag[_], UpdatableMVar[_]]] = Map.empty): MonotonicMap[K] = new InMemMonotonicMap[K] {
+    override private[monotonic] val map: AtomicReference[Map[K, Map[TypeTag[_], UpdatableMVar[_]]]] = new AtomicReference(content)
   }
 
-  def withStringMap(initialState: Map[String, Any] = Map.empty[String, Any])(test: InMemMonotonicMap[String] ⇒ Any): Unit = {
-
-    // Instantiate the implementing actor, and wrap a map around it
-    val actor = watch(system.actorOf(InMemMonotonicMapActor.props(initialState)))
-    val monotonicMap = new InMemMonotonicMap[String](actor)
-    // execute the test
-    test(monotonicMap)
-    // We don't expect any messages from the watch (it would be `Terminated`)
-    Try(expectNoMsg(expectNoMsgDuration)).failed.foreach(
-      fail("Deathwatch of InMemMonotonicMapActor was triggered by message", _))
-  }
 }

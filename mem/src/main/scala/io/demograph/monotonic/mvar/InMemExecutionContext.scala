@@ -51,3 +51,7 @@ class InMemExecutionContext(implicit system: ActorSystem) extends ExecutionConte
     new ProductMVar[S, T](mvarS, mvarT)
   }
 }
+
+object InMemExecutionContext {
+  def apply()(implicit system: ActorSystem): InMemExecutionContext = new InMemExecutionContext()(system)
+}

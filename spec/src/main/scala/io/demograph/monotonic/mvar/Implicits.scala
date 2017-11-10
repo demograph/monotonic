@@ -16,7 +16,6 @@
 
 package io.demograph.monotonic.mvar
 import algebra.lattice.BoundedJoinSemilattice
-
 /**
  *
  */
@@ -31,5 +30,4 @@ trait Implicits {
 
     override def product[T: BoundedJoinSemilattice](mvarT: MVar[T]): MVar[(A, T)] = ec.product(mvar)(mvarT)
   }
-
 }

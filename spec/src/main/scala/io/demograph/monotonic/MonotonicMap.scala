@@ -16,10 +16,10 @@
 
 package io.demograph.monotonic
 
-import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
-import io.demograph.monotonic.mvar.MVar
-import org.reactivestreams.Publisher
+import algebra.lattice.BoundedJoinSemilattice
+import io.demograph.monotonic.mvar.UpdatableMVar
 
+import scala.reflect.runtime.universe._
 /**
  * This defines the central interface to MonotonicMap implementations.
  *
@@ -30,27 +30,32 @@ import org.reactivestreams.Publisher
 trait MonotonicMap[K] {
 
   /**
-   * Attempts to read a stream of updates for `key` as type `V`
-   *
-   * @param key The key to read an update-stream from
-   * @tparam V The value type, which should be a JoinSemilattice (only such values can be written and thus cause updates)
-   * @return A (never-terminating) Publisher with updates for `key` of type `V`. The stream is expected to fail iif any
-   *         element cannot be handled as if being of type `V`. If no Subscriber is created for the Publisher, or the
-   *         subscriber terminates, the Publisher is expected to clean up after itself.
+   * Retrieves the monotonic variable that supposedly is stored under `Key`. If the key does not exist, it will
+   * instantiate a new variable with initialValue, and register it for the given key
    */
-  def read[V](key: K): Publisher[V]
+  def get[V: BoundedJoinSemilattice: TypeTag](key: K, initialValue: V): UpdatableMVar[V]
 
   /**
-   * Attempts to write `value` to `key`. We expect a `JoinSemilattice` for `V` as we ought to be able to merge any
-   * value, if one were to exist.
+   * Retrieves the monotonic variable that is stored in this map under `key`, or returns a new bound `MVar` starting
+   * at the bottom value for `V`
    *
-   * @param key   The key to write the new value to
-   * @param value The value to be written
-   * @tparam V The type of the value, which should be compatible with any existing value
-   * @return A Publisher that propagates updates of the writes. This Publisher should never fail except for fatal JVM
-   *         exceptions. All other errors should be transformed to instances of `WriteNotification`. Implementations
-   *         are expected to clean up after themselves if subscribers terminate. Implementations are expected to
-   *         close the stream cleanly if no further progress can be made and no FatalFailure occurred.
+   * @param key
+   * @tparam V
+   * @return
    */
-  def write[V: JoinSemilattice](key: K, value: V): Publisher[WriteNotification]
+  def get[V: BoundedJoinSemilattice: TypeTag](key: K): UpdatableMVar[V] = get(key, BoundedJoinSemilattice[V].zero)
+
+  /**
+   * Binds the given mvar to the given key.
+   */
+  def put[V: BoundedJoinSemilattice: TypeTag](key: K, mvar: UpdatableMVar[V]): Unit
+
+  //  /**
+  //    * TODO: Binds the given mvar to the given key. The given monitor will be fed notifications of write progress.
+  //    * @param key
+  //    * @param mvar
+  //    * @param monitor
+  //    * @tparam V
+  //    */
+  //  def put[V: JoinSemilattice](key: K, mvar: MVar[V], monitor: Subscriber[WriteNotification]): Unit
 }
