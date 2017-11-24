@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
-
-import algebra.lattice.BoundedJoinSemilattice
+package io.demograph.monotonic.`var`
 
 /**
  *
  */
-trait MVarOps[S] {
+trait Updatable[T] {
 
-  def map[T: BoundedJoinSemilattice](f: S ⇒ T): MVar[T]
+  /**
+   *
+   * @param t the value to be interpreted as an update
+   */
+  def set(t: T): Unit
 
-  def product[T: BoundedJoinSemilattice](mvarT: MVar[T]): MVar[(S, T)]
-
+  /**
+   * Use a function to modify a current state into a new state
+   * @param f
+   */
+  def update(f: T ⇒ T): Unit
 }

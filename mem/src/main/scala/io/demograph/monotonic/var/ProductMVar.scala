@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -28,7 +28,7 @@ class ProductMVar[S: BJSL, T: BJSL](mvarS: MVar[S], mvarT: MVar[T])(implicit mat
   private val srcS = Source.fromPublisher(mvarS.publisher).map(liftL[S, T])
   private val srcT = Source.fromPublisher(mvarT.publisher).map(liftR[S, T])
 
-  srcS.merge(srcT).runForeach(onUpdate)
+  srcS.merge(srcT).runForeach(_set)
 }
 
 object ProductMVar {

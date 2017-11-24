@@ -1,4 +1,4 @@
-import io.demograph.monotonic.mvar.MVar
+import io.demograph.monotonic.`var`.MVar
 
 import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._

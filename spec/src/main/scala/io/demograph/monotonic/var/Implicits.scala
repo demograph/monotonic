@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 import algebra.lattice.BoundedJoinSemilattice
 /**
  *

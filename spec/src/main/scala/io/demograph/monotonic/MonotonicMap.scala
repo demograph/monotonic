@@ -17,7 +17,7 @@
 package io.demograph.monotonic
 
 import algebra.lattice.BoundedJoinSemilattice
-import io.demograph.monotonic.mvar.UpdatableMVar
+import io.demograph.monotonic.`var`.UpdatableMVar
 
 import scala.reflect.runtime.universe._
 /**

@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import algebra.lattice.JoinSemilattice
 
 /**
- * A Read-Write MVar. The Updatable interface is exposed to client code.
+ *
  */
-class WritableMVar[S: JoinSemilattice](initialValue: S) extends AtomicMVar[S](initialValue) with Updatable[S] {
-  /**
-   *
-   * @param s the value to be interpreted as an update
-   */
-  override def update(s: S): Unit = onUpdate(s)
+case class MapMVar[S: JoinSemilattice, T: JoinSemilattice](source: MVar[S], f: S ⇒ T, initialValue: T)(implicit mat: Materializer) extends AtomicMVar[T](initialValue) {
 
-  override def update(f: S ⇒ S): Unit = onUpdate(f)
+  val _ = Source.fromPublisher(source.publisher)
+    .map(f)
+    .runForeach(_set)
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -27,29 +27,17 @@ class InMemExecutionContext(implicit system: ActorSystem) extends ExecutionConte
 
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  override def mvar[S: BoundedJoinSemilattice]: UpdatableMVar[S] = mvar(BoundedJoinSemilattice[S].zero)
+  override def mvar[S: BoundedJoinSemilattice]: UpdatableMVar[S] =
+    mvar(BoundedJoinSemilattice[S].zero)
 
   override def mvar[S: JoinSemilattice](initialValue: S): UpdatableMVar[S] =
     new WritableMVar[S](initialValue)
 
-  override def map[S: JoinSemilattice, T: BoundedJoinSemilattice](mvarS: MVar[S])(f: (S) ⇒ T): MVar[T] = {
-    // Subscribe for updates on `mvarS`
-    // For each update `u`, apply `f` to obtain `f(u)`
-    // Update the MVar[T] with `f(u)`
-    // Propagate `f(u)` to all subscribers
+  override def map[S: JoinSemilattice, T: BoundedJoinSemilattice](mvarS: MVar[S])(f: (S) ⇒ T): MVar[T] =
     new MapMVar[S, T](mvarS, f, BoundedJoinSemilattice[T].zero)
-  }
 
-  override def product[S: BoundedJoinSemilattice, T: BoundedJoinSemilattice](mvarS: MVar[S])(mvarT: MVar[T]): MVar[(S, T)] = {
-    // Subscribe for updates on `mvarS`
-    // Subscribe for updates on `mvarT`
-    // For each update `s`, lift `s` to `(s, t.bottom)`
-    // For each update `t`, lift `t` to `(s.bottom, t)`
-    // Merge updates from both subscriptions into a single subscription for `(s, t)`
-    // Update the MVar[(S, T)] with `(s, t)`
-    // Propagate `(s, t)` to all subscribers
+  override def product[S: BoundedJoinSemilattice, T: BoundedJoinSemilattice](mvarS: MVar[S])(mvarT: MVar[T]): MVar[(S, T)] =
     new ProductMVar[S, T](mvarS, mvarT)
-  }
 }
 
 object InMemExecutionContext {

@@ -19,7 +19,7 @@ package io.demograph.monotonic
 import java.util.concurrent.atomic.AtomicReference
 
 import algebra.instances.set._
-import io.demograph.monotonic.mvar._
+import io.demograph.monotonic.`var`._
 
 import scala.reflect.runtime.universe._
 /**
@@ -37,7 +37,7 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     mvar.sample shouldBe 'empty
 
     withClue("The returned MVar should now be bound to 'new-key'") {
-      mvar.update(Set("some-element"))
+      mvar.set(Set("some-element"))
       val mvar2: UpdatableMVar[Set[String]] = newMMap.get[Set[String]]("new-key")
       mvar2.sample shouldBe Set("some-element")
     }
@@ -67,7 +67,7 @@ class InMemMonotonicMapSpec extends ActorTestBase {
     val mvar1 = newMMap.get[Set[String]]("key1")
     val mvar2 = newMMap.get[Set[String]]("key2")
 
-    mvar1.update(Set("shared-value"))
+    mvar1.set(Set("shared-value"))
     eventually(mvar2.sample shouldBe Set("shared-value"))
   }
 

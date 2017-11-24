@@ -19,9 +19,10 @@ package io.demograph.monotonic
 /**
  *
  */
-package object mvar extends Implicits {
+package object `var` extends Implicits {
 
-  type UpdatableMVar[S] = MVar[S] with Updatable[S]
+  type UpdatableVar[S] = Updatable[S] with Var[S]
+  type UpdatableMVar[S] = Updatable[S] with MVar[S]
 
   /* Explicit representation of the computational graph */
   trait MVarNode {

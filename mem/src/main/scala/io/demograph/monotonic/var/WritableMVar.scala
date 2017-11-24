@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
+
+import algebra.lattice.JoinSemilattice
 
 /**
- *
+ * A Read-Write MVar. The Updatable interface is exposed to client code.
  */
-trait Inflation[T] extends (T ⇒ T)
-
-object Inflation {
-  def identity[T]: Inflation[T] = new Inflation[T] {
-    override def apply(v1: T): T = v1
-  }
+class WritableMVar[S: JoinSemilattice](initialValue: S) extends AtomicMVar[S](initialValue) with Updatable[S] {
+  def set(delta: S): Unit = _set(delta)
+  def update(f: S ⇒ S): Unit = _update(f)
 }

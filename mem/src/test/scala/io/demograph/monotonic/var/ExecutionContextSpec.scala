@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
 import io.demograph.monotonic.ActorTestBase
 import algebra.instances.set._
@@ -47,10 +47,10 @@ class ExecutionContextSpec extends ActorTestBase with IntegrationPatience {
   it should "allow updates of MVars" in {
     val intSet: UpdatableMVar[Set[Int]] = ec.mvar[Set[Int]]
 
-    intSet.update(Set(1))
+    intSet.set(Set(1))
     eventually(intSet.sample should contain only 1)
 
-    intSet.update(Set(2))
+    intSet.set(Set(2))
     eventually(intSet.sample should contain theSameElementsAs Set(1, 2))
   }
 
@@ -60,8 +60,8 @@ class ExecutionContextSpec extends ActorTestBase with IntegrationPatience {
 
     eventually(setWithout4.sample shouldBe Set(1, 2, 3))
 
-    intSet.update(Set(4))
-    intSet.update(Set(5))
+    intSet.set(Set(4))
+    intSet.set(Set(5))
 
     eventually(setWithout4.sample shouldBe Set(1, 2, 3, 5))
   }
@@ -73,10 +73,10 @@ class ExecutionContextSpec extends ActorTestBase with IntegrationPatience {
     val product = intSet.product(longSet)
     eventually(product.sample shouldBe (Set(1), Set(1L)))
 
-    intSet.update(Set(2))
+    intSet.set(Set(2))
     eventually(product.sample shouldBe (Set(1, 2), Set(1L)))
 
-    longSet.update(Set(2L))
+    longSet.set(Set(2L))
     eventually(product.sample shouldBe (Set(1, 2), Set(1L, 2L)))
   }
 }

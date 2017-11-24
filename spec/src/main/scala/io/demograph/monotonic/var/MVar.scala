@@ -14,22 +14,10 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
 /**
- *
+ * MVar is a marker trait for variables whose wrapped datastructure supports only monotonic operations. Such variables
+ * are safe for replication over the network.
  */
-trait Updatable[T] {
-
-  /**
-   *
-   * @param t the value to be interpreted as an update
-   */
-  def update(t: T): Unit
-
-  /**
-   * Use a function to modify a current state into a new state
-   * @param f
-   */
-  def update(f: T ⇒ T): Unit
-}
+trait MVar[S] extends Var[S]

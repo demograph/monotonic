@@ -21,7 +21,7 @@ import java.util.function.UnaryOperator
 
 import akka.actor.ActorRefFactory
 import algebra.lattice.BoundedJoinSemilattice
-import io.demograph.monotonic.mvar.{ ExecutionContext, UpdatableMVar }
+import io.demograph.monotonic.`var`.{ ExecutionContext, UpdatableMVar }
 
 import scala.reflect.runtime.universe._
 /**

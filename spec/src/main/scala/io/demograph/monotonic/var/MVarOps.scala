@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
+
+import algebra.lattice.BoundedJoinSemilattice
 
 /**
- * An MVar can be digestable. That is, we can compute a bit of summary info from an instance using `digest` such that
- * when we `diff` with that digest, we get the bottom value for the lattice, or a(nother) delta if the MVar was updated
- * in the meantime
+ *
  */
-trait Digestable[F[_], D] {
+trait MVarOps[S] {
 
-  def digest: D
-  def diff[T](digest: D): F[T]
+  def map[T: BoundedJoinSemilattice](f: S ⇒ T): MVar[T]
+
+  def product[T: BoundedJoinSemilattice](mvarT: MVar[T]): MVar[(S, T)]
 
 }

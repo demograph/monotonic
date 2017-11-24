@@ -14,44 +14,37 @@
  * limitations under the License.
  */
 
-package io.demograph.monotonic.mvar
+package io.demograph.monotonic.`var`
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 import java.util.function.UnaryOperator
 
-import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
-import io.demograph.monotonic.mvar.AtomicMVar.SubscriberState
-import io.demograph.monotonic.queue.{ MergingQueue, Queue }
+import io.demograph.monotonic.`var`.AtomicMVar.SubscriberState
+import io.demograph.monotonic.queue.{ LWWQueue, Queue }
 import org.reactivestreams.{ Publisher, Subscriber, Subscription }
 
 /**
- * Ideas:
- * - Update the variable atomically, propagate asynchronously to subscribers
- * - Wait for all subscriber demand to be positive, then update and propagate?
+ *
  */
-class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
+class AtomicVar[V](initialValue: V) extends Var[V] {
 
-  protected val value: AtomicReference[V] = new AtomicReference[V](initialValue)
+  protected val ref: AtomicReference[V] = new AtomicReference[V](initialValue)
 
-  override def sample: V = value.get()
+  override def sample: V = ref.get()
 
-  override protected[mvar] def onUpdate(delta: V): Unit = {
-    value.getAndUpdate(new UnaryOperator[V] {
-      override def apply(currentState: V): V = JoinSemilattice.join(currentState, delta)
-    })
-    updateSubscribers(enqueue(delta) andThen dispatchReadyElements)
+  override protected[`var`] def _set(value: V): V = {
+    val previous = ref.getAndSet(value)
+    updateSubscribers(enqueue(value) andThen dispatchReadyElements)
+    previous
   }
 
-  override protected[mvar] def onUpdate(f: V ⇒ V): Unit = {
-    value.getAndUpdate(new UnaryOperator[V] {
-      override def apply(currentState: V): V = {
-        val delta = f(currentState)
-        val newState = JoinSemilattice.join(currentState, delta)
-        updateSubscribers(enqueue(delta) andThen dispatchReadyElements)
-        newState
-      }
+  override protected[`var`] def _update(f: V ⇒ V): V = {
+    val previous = ref.getAndUpdate(new UnaryOperator[V] {
+      override def apply(currentState: V): V = f(currentState)
     })
+    updateSubscribers(enqueue(f(previous)) andThen dispatchReadyElements)
+    previous
   }
 
   val index = new AtomicLong(0L)
@@ -61,7 +54,7 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
     override def subscribe(s: Subscriber[_ >: V]): Unit = {
 
       val newIndex = index.incrementAndGet()
-      val state = SubscriberState[V](s.asInstanceOf[Subscriber[V]], 0L, new MergingQueue[V](Some(sample)))
+      val state = SubscriberState[V](s.asInstanceOf[Subscriber[V]], 0L, queueFromCurrentState)
 
       atomicMap.put(newIndex, state)
       val subscription = new Subscription {
@@ -73,6 +66,8 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
       s.onSubscribe(subscription)
     }
   }
+
+  protected def queueFromCurrentState: Queue[V] = new LWWQueue[V](Some(sample))
 
   /* FIXME: Temporarily changed visibility to protected. Should probably be reverted! */
   protected def updateSubscribers(f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
@@ -98,12 +93,4 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends MVar[V] {
 
     SubscriberState[V](subscriber, demand - sendSize, newQueue)
   }
-}
-object AtomicMVar {
-
-  def apply[V: JoinSemilattice](initialValue: V): MVar[V] = new AtomicMVar[V](initialValue)
-
-  def apply[V: BoundedJoinSemilattice](): MVar[V] = apply(BoundedJoinSemilattice[V].zero)
-
-  case class SubscriberState[V](subscriber: Subscriber[V], demand: Long, queue: Queue[V])
 }
