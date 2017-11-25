@@ -19,7 +19,9 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-abstract class BoundedQueue[A, Repr <: BoundedQueue[A, Repr]](vector: Vector[A]) extends QueueConsumer[A, Repr] {
+abstract class BoundedQueue[A](vector: Vector[A]) extends QueueConsumer[A] {
+
+  override type QC <: BoundedQueue[A]
 
   override def isEmpty: Boolean = vector.isEmpty
 
@@ -29,20 +31,20 @@ abstract class BoundedQueue[A, Repr <: BoundedQueue[A, Repr]](vector: Vector[A])
 
   override def peek(n: Int): Traversable[A] = vector.take(n)
 
-  override def dropHead(): Repr = fromVector(vector.tail)
+  override def dropHead(): QC = fromVector(vector.tail)
 
-  override def dropTail(): Repr = fromVector(Vector(vector.head))
+  override def dropTail(): QC = fromVector(Vector(vector.head))
 
-  def clear(): Repr = fromVector(Vector.empty)
+  def clear(): QC = fromVector(Vector.empty)
 
   override def dequeue(): A = vector.head
 
-  override def dequeue(i: Int): (Traversable[A], Repr) = {
+  override def dequeue(i: Int): (Traversable[A], QC) = {
     val (first, second) = vector.splitAt(i)
     (first, fromVector(second))
   }
 
-  protected def fromVector(v: Vector[A]): Repr
+  protected def fromVector(v: Vector[A]): QC
 
   def isFull: Boolean = vector.size >= capacity
 

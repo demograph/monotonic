@@ -19,4 +19,7 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-abstract class Queue[A](val vector: Vector[A]) extends BoundedQueue[A, Queue[A]](vector) with QueueProducer[A, Queue[A]]
+abstract class Queue[A](val vector: Vector[A]) extends BoundedQueue[A](vector) with QueueProducer[A] {
+  override type QC = Queue[A]
+  override type QP = Queue[A]
+}

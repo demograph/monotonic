@@ -19,7 +19,9 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-trait QueueConsumer[A, Repr <: QueueConsumer[A, Repr]] {
+trait QueueConsumer[A] {
+
+  type QC <: QueueConsumer[A]
 
   def isEmpty: Boolean
 
@@ -29,13 +31,13 @@ trait QueueConsumer[A, Repr <: QueueConsumer[A, Repr]] {
 
   def peek(n: Int): Traversable[A]
 
-  def dropHead(): Repr
+  def dropHead(): QC
 
-  def dropTail(): Repr
+  def dropTail(): QC
 
-  def clear(): Repr
+  def clear(): QC
 
   def dequeue(): A
 
-  def dequeue(i: Int): (Traversable[A], Repr)
+  def dequeue(i: Int): (Traversable[A], QC)
 }

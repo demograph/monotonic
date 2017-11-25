@@ -19,6 +19,7 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-trait QueueProducer[A, Repr <: QueueProducer[A, Repr]] {
-  def enqueue(a: A): Repr
+trait QueueProducer[A] {
+  type QP <: QueueProducer[A]
+  def enqueue(a: A): QP
 }
