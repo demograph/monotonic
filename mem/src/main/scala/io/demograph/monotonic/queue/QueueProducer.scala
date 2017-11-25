@@ -19,4 +19,6 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-abstract class Queue[A](val vector: Vector[A]) extends BoundedQueue[A, Queue[A]](vector) with QueueProducer[A, Queue[A]]
+trait QueueProducer[A, Repr <: QueueProducer[A, Repr]] {
+  def enqueue(a: A): Repr
+}

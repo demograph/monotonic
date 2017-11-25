@@ -19,6 +19,8 @@ package io.demograph.monotonic.`var`
 import java.util.function.UnaryOperator
 
 import algebra.lattice.{ BoundedJoinSemilattice, JoinSemilattice }
+import cats.kernel.Monoid
+import io.demograph.monotonic.queue.OverflowStrategies.MergePairs
 import io.demograph.monotonic.queue.{ MergingQueue, Queue }
 import org.reactivestreams.Subscriber
 
@@ -53,7 +55,12 @@ class AtomicMVar[V: JoinSemilattice](initialValue: V) extends AtomicVar[V](initi
     oldState
   }
 
-  override protected def queueFromCurrentState = new MergingQueue[V](Some(sample))
+  override protected def queueFromCurrentState: Queue[V] = MergingQueue[V](MergePairs, 8, Vector(sample))
+
+  private implicit lazy val monoidV: Monoid[V] = new Monoid[V] {
+    override def empty: V = initialValue // Not lawful... but `empty` is not actually used right now (Foldable.combineAll on non-empty only)
+    override def combine(x: V, y: V): V = JoinSemilattice.join(x, y)
+  }
 }
 
 object AtomicMVar {

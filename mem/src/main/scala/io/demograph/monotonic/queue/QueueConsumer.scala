@@ -19,4 +19,23 @@ package io.demograph.monotonic.queue
 /**
  *
  */
-abstract class Queue[A](val vector: Vector[A]) extends BoundedQueue[A, Queue[A]](vector) with QueueProducer[A, Queue[A]]
+trait QueueConsumer[A, Repr <: QueueConsumer[A, Repr]] {
+
+  def isEmpty: Boolean
+
+  def nonEmpty: Boolean
+
+  def size: Int
+
+  def peek(n: Int): Traversable[A]
+
+  def dropHead(): Repr
+
+  def dropTail(): Repr
+
+  def clear(): Repr
+
+  def dequeue(): A
+
+  def dequeue(i: Int): (Traversable[A], Repr)
+}

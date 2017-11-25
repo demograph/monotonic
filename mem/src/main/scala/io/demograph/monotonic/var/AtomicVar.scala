@@ -21,7 +21,8 @@ import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 import java.util.function.UnaryOperator
 
 import io.demograph.monotonic.`var`.AtomicMVar.SubscriberState
-import io.demograph.monotonic.queue.{ LWWQueue, Queue }
+import io.demograph.monotonic.queue.OverflowStrategies.DropHead
+import io.demograph.monotonic.queue.{ PurgingQueue, Queue }
 import org.reactivestreams.{ Publisher, Subscriber, Subscription }
 
 /**
@@ -67,7 +68,7 @@ class AtomicVar[V](initialValue: V) extends Var[V] {
     }
   }
 
-  protected def queueFromCurrentState: Queue[V] = new LWWQueue[V](Some(sample))
+  protected def queueFromCurrentState: Queue[V] = new PurgingQueue[V](DropHead, 8, Vector(sample))
 
   /* FIXME: Temporarily changed visibility to protected. Should probably be reverted! */
   protected def updateSubscribers(f: SubscriberState[V] ⇒ SubscriberState[V]): Unit = {
@@ -85,12 +86,13 @@ class AtomicVar[V](initialValue: V) extends Var[V] {
 
   protected def dispatchReadyElements: SubscriberState[V] ⇒ SubscriberState[V] = state ⇒ {
     import state._
-    val (sendSize, toSend, newQueue) = queue.dequeue(math.min(Int.MaxValue, demand).toInt)
+    val (toSend, newQueue) = queue.dequeue(math.min(Int.MaxValue, demand).toInt)
 
     // FIXME: Here we have a side-effect, there should be a better way of atomically updating the subscriber,
     // acquiring what needs to be dispatched and then actually dispatching it
     toSend.foreach(subscriber.onNext)
 
-    SubscriberState[V](subscriber, demand - sendSize, newQueue)
+    // TODO: Fix iterating toSend twice
+    SubscriberState[V](subscriber, demand - toSend.size, newQueue)
   }
 }

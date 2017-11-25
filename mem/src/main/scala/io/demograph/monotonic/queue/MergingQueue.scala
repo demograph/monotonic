@@ -16,30 +16,41 @@
 
 package io.demograph.monotonic.queue
 
-import algebra.lattice.JoinSemilattice
-import cats.kernel.Semigroup
+import cats.instances.vector._
+import cats.kernel.Monoid
+import cats.syntax.foldable._
+import cats.syntax.semigroup._
+import io.demograph.monotonic.queue.OverflowStrategies._
 
-import scala.collection.TraversableOnce
+final case class MergingQueue[A: Monoid](
+  overflowStrategy: MergingOverflowStrategy,
+  capacity: Int,
+  override val vector: Vector[A] = Vector.empty) extends Queue[A](vector) {
+
+  require(capacity > 0, "Capacity must be positive")
+  require(vector.size <= capacity, "|vector| must not exceed `capacity`")
+
+  override protected def fromVector(v: Vector[A]): Queue[A] = MergingQueue(overflowStrategy, capacity, v)
+
+  override def enqueue(a: A): Queue[A] = {
+    if (isFull && capacity > 1) {
+      overflowStrategy match {
+        case MergeHead ⇒ fromVector(vector.take(2).combineAll +: vector.drop(2) :+ a)
+        case MergePairs ⇒ fromVector(vector.grouped(2).map(_.combineAll).toVector :+ a)
+        case MergeAll ⇒ fromVector(Vector(vector.combineAll, a))
+        // TODO: Merge in a way that each slot has the same number of merges (requires maintaining some state)
+        case BalancedMerge ⇒ ???
+        case BoundedBalancedMerge(maxMerges, fallback) ⇒ ???
+      }
+    } else if (isFull) {
+      fromVector(Vector(vector.combineAll |+| a))
+    } else {
+      fromVector(vector :+ a)
+    }
+  }
+}
 
 object MergingQueue {
-  def empty[V: JoinSemilattice]: MergingQueue[V] = MergingQueue()
-}
-case class MergingQueue[V: JoinSemilattice](state: Option[V] = None) extends Queue[V] {
-  override type Repr = MergingQueue[V]
-
-  implicit def semigroupJSL[X: JoinSemilattice]: Semigroup[X] = (x: X, y: X) => JoinSemilattice[X].join(x, y)
-
-  override def enqueue(v: V): MergingQueue[V] = MergingQueue(Some(Semigroup.maybeCombine[V](v, state)))
-
-  override def dequeue(count: Int): (Int, TraversableOnce[V], MergingQueue[V]) = {
-    if (count > 0)
-      (count - 1, state, MergingQueue.empty)
-    else
-      (count, Traversable.empty, this)
-  }
-
-  /**
-   * @return true if this queue contains no elements, false otherwise
-   */
-  override def isEmpty: Boolean = state.isEmpty
+  def empty[V: Monoid](overflowStrategy: MergingOverflowStrategy, capacity: Int): MergingQueue[V] =
+    MergingQueue(overflowStrategy, capacity)
 }
